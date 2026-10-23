@@ -2,7 +2,7 @@ using System.IO;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Timeline;
-#if CM2 || CM3
+#if CM3
 using Unity.Cinemachine;
 #endif
 
@@ -55,6 +55,22 @@ namespace UnityMcpBridge.Editor.Cutscene
             Undo.RegisterCreatedObjectUndo(container, $"MCP Create {sequenceName}");
             container.transform.SetParent(cutscenesRoot.transform, worldPositionStays: false);
             return container;
+        }
+
+        /// <summary>
+        /// The container's CutsceneSequenceSettings (added if missing), recorded for Undo
+        /// and stamped with the template. Templates fill in the settings they were built
+        /// from, so update_cutscene_sequence can recompute changes the same way.
+        /// </summary>
+        public static global::UnityMcpBridge.CutsceneSequenceSettings RecordSettings(GameObject container, string template)
+        {
+            var settings = container.GetComponent<global::UnityMcpBridge.CutsceneSequenceSettings>();
+            if (settings == null)
+                settings = Undo.AddComponent<global::UnityMcpBridge.CutsceneSequenceSettings>(container);
+            else
+                Undo.RecordObject(settings, "MCP Cutscene Settings");
+            settings.template = template;
+            return settings;
         }
 
         // ------------------------------------------------------------------ //
@@ -115,7 +131,7 @@ namespace UnityMcpBridge.Editor.Cutscene
         /// </summary>
         public static bool DetectCinemachineBrain()
         {
-#if CM2 || CM3
+#if CM3
 #if UNITY_2022_2_OR_NEWER
             return Object.FindFirstObjectByType<CinemachineBrain>() != null;
 #else
@@ -136,7 +152,7 @@ namespace UnityMcpBridge.Editor.Cutscene
         /// </summary>
         public static string GetCinemachineVersion()
         {
-#if CM2 || CM3
+#if CM3
             try
             {
                 var info = UnityEditor.PackageManager.PackageInfo

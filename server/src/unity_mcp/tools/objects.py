@@ -64,6 +64,8 @@ async def find_objects(
     path is what other tools expect as object_path, e.g.:
       "/Village/Props/Barrel_04"
       "/World/Lighting/Lamp_03"
+      "Village/Props/Barrel[2]"   (the second of several siblings named Barrel)
+      "Dungeon:Props/Torch"       (an object in another loaded scene)
 
     components[] lists the C# type names of every component on the object.
 

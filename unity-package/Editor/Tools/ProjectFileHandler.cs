@@ -116,40 +116,27 @@ namespace UnityMcpBridge.Editor.Tools
         public static Task<McpResponse> ListFilesAsync(ListProjectFilesRequest req) =>
             MainThreadDispatcher.EnqueueAsync<McpResponse>(() =>
             {
-                var rawPath = (req?.Path ?? string.Empty).Trim().TrimStart('/', '\\');
-
-                // Strip leading "Assets/" from the directory path too
-                if (rawPath.StartsWith("assets/", StringComparison.OrdinalIgnoreCase) ||
-                    rawPath.StartsWith("assets\\", StringComparison.OrdinalIgnoreCase))
-                    rawPath = rawPath.Substring(7);
-
-                if (rawPath.Contains(".."))
-                    return McpResponse.Fail("INVALID_PATH",
-                        "Path must not contain '..' segments.");
-
-                var fullDir = string.IsNullOrEmpty(rawPath)
-                    ? Application.dataPath
-                    : Path.Combine(Application.dataPath, rawPath.Replace('/', Path.DirectorySeparatorChar));
+                // The same check as the other file tools; an empty path is the Assets folder.
+                if (!TryResolvePath(req?.Path ?? string.Empty, out var rawPath, out var fullDir, out var pathError,
+                                    allowAssetsRoot: true))
+                    return McpResponse.Fail("INVALID_PATH", pathError);
 
                 if (!Directory.Exists(fullDir))
                     return McpResponse.Fail("DIRECTORY_NOT_FOUND",
                         $"Directory '{(string.IsNullOrEmpty(rawPath) ? "Assets" : "Assets/" + rawPath)}' " +
                         "does not exist.");
 
-                var pattern   = string.IsNullOrWhiteSpace(req?.Pattern) ? "*" : req.Pattern;
+                var pattern   = string.IsNullOrWhiteSpace(req?.Pattern) ? "*" : req.Pattern.Trim();
+                if (pattern.Contains("..") || pattern.IndexOfAny(new[] { '/', '\\', ':' }) >= 0)
+                    return McpResponse.Fail("INVALID_PATH",
+                        "pattern is a file name pattern such as \"*.cs\"; it must not contain a path.");
                 var searchOpt = req?.Recursive == true
                     ? SearchOption.AllDirectories
                     : SearchOption.TopDirectoryOnly;
 
                 var files = Directory.GetFiles(fullDir, pattern, searchOpt)
                     .Where(f => !f.EndsWith(".meta", StringComparison.OrdinalIgnoreCase))
-                    .Select(f =>
-                    {
-                        var rel = f.Replace(Application.dataPath, string.Empty)
-                                   .TrimStart('/', '\\', Path.DirectorySeparatorChar)
-                                   .Replace('\\', '/');
-                        return "Assets/" + rel;
-                    })
+                    .Select(f => "Assets/" + Path.GetRelativePath(AssetsRoot, f).Replace('\\', '/'))
                     .OrderBy(f => f)
                     .ToArray();
 
@@ -170,24 +157,41 @@ namespace UnityMcpBridge.Editor.Tools
         /// Validates and resolves a user-supplied path.
         /// Returns false and sets error if the path is invalid or outside Assets/.
         /// </summary>
-        private static bool TryResolvePath(
+        /// <summary>The Assets folder as a full path, without a trailing separator.</summary>
+        private static string AssetsRoot =>
+            Path.GetFullPath(Application.dataPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        internal static bool TryResolvePath(
             string     input,
             out string relativePath,
             out string fullPath,
-            out string error)
+            out string error,
+            bool       allowAssetsRoot = false)
         {
             relativePath = string.Empty;
             fullPath     = string.Empty;
             error        = string.Empty;
 
-            // Normalise separators and strip leading slashes
-            var clean = input.Replace('\\', '/').TrimStart('/');
+            var raw = (input ?? string.Empty).Trim().Replace('\\', '/');
 
-            // Strip leading "Assets/" (case-insensitive) so callers can pass either form
-            if (clean.StartsWith("assets/", StringComparison.OrdinalIgnoreCase))
+            // An absolute path (C:/..., //server/..., /Users/...) is never accepted: on
+            // Windows Path.Combine would return it unchanged, outside the project.
+            if (Path.IsPathRooted(raw) && !raw.StartsWith("/") || raw.StartsWith("//") ||
+                (raw.Length >= 2 && raw[1] == ':'))
+            {
+                error = "Use a path inside the Assets folder, such as \"Assets/Scripts/Foo.cs\", not an absolute path.";
+                return false;
+            }
+
+            // Strip leading slashes and "Assets/" (case-insensitive) so callers can pass either form
+            var clean = raw.TrimStart('/');
+            if (clean.Equals("assets", StringComparison.OrdinalIgnoreCase))
+                clean = string.Empty;
+            else if (clean.StartsWith("assets/", StringComparison.OrdinalIgnoreCase))
                 clean = clean.Substring(7);
+            clean = clean.TrimEnd('/');
 
-            if (string.IsNullOrWhiteSpace(clean))
+            if (string.IsNullOrWhiteSpace(clean) && !allowAssetsRoot)
             {
                 error = "Path resolves to empty after stripping 'Assets/'.";
                 return false;
@@ -199,12 +203,16 @@ namespace UnityMcpBridge.Editor.Tools
                 return false;
             }
 
-            var resolved = Path.GetFullPath(
-                Path.Combine(Application.dataPath, clean.Replace('/', Path.DirectorySeparatorChar)));
+            var root     = AssetsRoot;
+            var resolved = string.IsNullOrEmpty(clean)
+                ? root
+                : Path.GetFullPath(Path.Combine(root, clean.Replace('/', Path.DirectorySeparatorChar)));
 
-            // Ensure the resolved path is still inside Application.dataPath
-            var assetsRoot = Path.GetFullPath(Application.dataPath);
-            if (!resolved.StartsWith(assetsRoot, StringComparison.OrdinalIgnoreCase))
+            // Inside Assets means Assets itself or below it: compare whole folder names, so
+            // a sibling such as "AssetsBackup" does not pass.
+            bool inside = resolved.Equals(root, StringComparison.OrdinalIgnoreCase) ||
+                          resolved.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+            if (!inside || (!allowAssetsRoot && resolved.Equals(root, StringComparison.OrdinalIgnoreCase)))
             {
                 error = "Path must remain within the Assets folder.";
                 return false;

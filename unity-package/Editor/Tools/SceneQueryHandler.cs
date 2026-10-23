@@ -99,9 +99,8 @@ namespace UnityMcpBridge.Editor.Tools
 
         private static SceneObjectData BuildNode(GameObject go, string parentPath, int depth, int maxDepth)
         {
-            string path = string.IsNullOrEmpty(parentPath)
-                ? go.name
-                : parentPath + "/" + go.name;
+            // Same form as every other tool's paths: indexes on shared sibling names.
+            string path = PlacementHandler.GetPath(go);
 
             var node = new SceneObjectData
             {

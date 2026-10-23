@@ -32,7 +32,8 @@ async def get_cutscene_templates() -> str:
         description        — what the template creates and when to use it
         parameters[]       — each parameter with name, type, required, default, description
 
-    If Cinemachine is not installed, templates is empty and message explains why.
+    The cutscene tools need Cinemachine 3.x (Unity 6 ships with it; 2.x is not
+    supported). Without it, templates is empty and message explains why.
 
     Phase 1 available templates:
       DialogueCamera — over-shoulder / two-shot for NPC dialogue
@@ -188,17 +189,16 @@ async def update_cutscene_sequence(
       duration    (float)   — total sequence length in seconds
       blend_in    (float)   — seconds to blend in (DialogueCamera, FocusCut)
       blend_out   (float)   — seconds to blend out (DialogueCamera, FocusCut)
-      ease_in     (float)   — fraction for ease-in  (AreaReveal, ArrivalFlythrough)
-      ease_out    (float)   — fraction for ease-out (AreaReveal, ArrivalFlythrough)
+      ease_in     (float)   — fraction of the duration for ease-in  (AreaReveal, ArrivalFlythrough)
+      ease_out    (float)   — fraction of the duration for ease-out (AreaReveal, ArrivalFlythrough)
 
     When duration or ease values change, the Timeline clip lengths, ActivationTrack
     clip, signal marker positions, and cart animation curve are all updated together.
 
     AreaReveal:
       waypoints   (float[3][])  — new camera path positions (min 2)
-                                  Updates CinemachineSmoothPath (CM2) or
-                                  SplineContainer knots (CM3) and rebakes the
-                                  cart animation curve.
+                                  Updates the SplineContainer knots and rebakes
+                                  the cart animation curve.
 
     ArrivalFlythrough:
       waypoints          (float[3][])  — new camera path (min 3)
@@ -209,8 +209,11 @@ async def update_cutscene_sequence(
                                    e.g. [0, 1.5, -2.0]
 
     DialogueCamera:
-      look_offset  (float[3])  — adjusts the LookTarget height/position.
-                                 Y component is treated as absolute world height.
+      look_offset  (float[3])  — new offset from the NPC to the look target, as at
+                                 creation: the look target moves to the NPC's
+                                 position plus the offset, and the camera height
+                                 follows its Y. Sequences created before the
+                                 settings were stored cannot be updated this way.
 
     ── EXAMPLE ──────────────────────────────────────────────────────────────
 

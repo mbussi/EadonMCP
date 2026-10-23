@@ -9,9 +9,9 @@ namespace UnityMcpBridge.Editor.Metadata
     /// Aggregates all PrefabMetadata assets in the project and exposes
     /// query methods used by SceneQueryHandler.
     ///
-    /// The registry is populated lazily on first access and can be refreshed
-    /// explicitly via Reload(). Call Reload() after importing new metadata assets
-    /// if you need the catalog to update without recompiling.
+    /// The registry is populated lazily on first access. MetadataCacheInvalidator
+    /// clears it whenever a PrefabMetadata asset is created, imported, deleted or
+    /// moved, by hand or by a tool, so it is reloaded on the next use.
     /// </summary>
     public static class MetadataRegistry
     {
@@ -72,6 +72,9 @@ namespace UnityMcpBridge.Editor.Metadata
                 return true;
             }).ToList();
         }
+
+        /// <summary>Forgets the cache; the next access reloads it from the AssetDatabase.</summary>
+        public static void Invalidate() => _cache = null;
 
         /// <summary>
         /// Clears and repopulates the cache from AssetDatabase.

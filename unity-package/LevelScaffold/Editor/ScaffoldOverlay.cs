@@ -32,14 +32,35 @@ namespace LevelScaffold.Editor
         //  Lifecycle                                                          //
         // ------------------------------------------------------------------ //
 
-        public override void OnCreated()
+        public override void OnCreated() => RestoreState();
+
+        /// <summary>
+        /// Restores the persisted switches into ScaffoldGizmoState. Also runs after every
+        /// script reload, so hidden scaffold stays hidden whether or not the overlay is open.
+        /// </summary>
+        [InitializeOnLoadMethod]
+        private static void RestoreState()
         {
-            // Restore persisted state into ScaffoldGizmoState
             ScaffoldGizmoState.ShowZones   = SessionState.GetBool(k_Zones,   true);
             ScaffoldGizmoState.ShowAnchors = SessionState.GetBool(k_Anchors, true);
             ScaffoldGizmoState.ShowMarkers = SessionState.GetBool(k_Markers, true);
             ScaffoldGizmoState.ShowRadii   = SessionState.GetBool(k_Radii,   true);
             ScaffoldGizmoState.ShowLabels  = SessionState.GetBool(k_Labels,  true);
+        }
+
+        /// <summary>
+        /// Shows or hides every scaffold gizmo (zones, anchors, markers, radii, labels):
+        /// the same switches as this overlay, kept for the editor session. Used by the
+        /// hide_scaffold / show_scaffold tools. Scene content is not touched.
+        /// </summary>
+        public static void SetAllVisible(bool visible)
+        {
+            ScaffoldGizmoState.ShowZones   = visible; SessionState.SetBool(k_Zones,   visible);
+            ScaffoldGizmoState.ShowAnchors = visible; SessionState.SetBool(k_Anchors, visible);
+            ScaffoldGizmoState.ShowMarkers = visible; SessionState.SetBool(k_Markers, visible);
+            ScaffoldGizmoState.ShowRadii   = visible; SessionState.SetBool(k_Radii,   visible);
+            ScaffoldGizmoState.ShowLabels  = visible; SessionState.SetBool(k_Labels,  visible);
+            SceneView.RepaintAll();
         }
 
         // ------------------------------------------------------------------ //

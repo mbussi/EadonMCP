@@ -347,39 +347,165 @@ namespace UnityMcpBridge.Editor.Tools
         // Shared utilities
         // -----------------------------------------------------------------------
 
+        // -----------------------------------------------------------------------
+        // Object paths
+        //
+        //   "Environment/Buildings/House"   a path from a root object, names joined by '/'
+        //   "Props/Barrel[2]"               same-named siblings: a 1-based index in sibling
+        //                                   order; every one of them gets an index
+        //   "Dungeon:Props/Torch"           a scene prefix: only that loaded scene
+        //
+        // Without a prefix the active scene is searched first, then the other loaded
+        // scenes. A path that matches several objects (siblings without an index, or the
+        // same path in several other scenes) throws AmbiguousPathException listing the
+        // exact paths. GetPath returns paths in the form FindByPath accepts.
+        // -----------------------------------------------------------------------
+
+        private static readonly System.Text.RegularExpressions.Regex IndexedName =
+            new System.Text.RegularExpressions.Regex(@"^(.*)\[(\d+)\]$");
+
         /// <summary>
-        /// Finds a scene object by its hierarchy path (e.g. "Environment/Buildings/House").
-        /// Returns null if any segment of the path is not found.
+        /// Finds a scene object by its hierarchy path (see above). Returns null when no
+        /// object matches; throws AmbiguousPathException when several do.
         /// </summary>
         public static GameObject FindByPath(string path)
         {
-            if (string.IsNullOrEmpty(path)) return null;
+            if (string.IsNullOrWhiteSpace(path)) return null;
+            var clean = path.Trim().TrimStart('/');
 
-            var parts   = path.TrimStart('/').Split('/');
-            var roots   = SceneManager.GetActiveScene().GetRootGameObjects();
-            var current = System.Array.Find(roots, go => go.name == parts[0])?.transform;
-
-            for (int i = 1; i < parts.Length && current != null; i++)
+            // Optional "SceneName:" prefix, recognised only when it names a loaded scene.
+            Scene? onlyScene = null;
+            int colon = clean.IndexOf(':');
+            int slash = clean.IndexOf('/');
+            if (colon > 0 && (slash < 0 || colon < slash))
             {
-                Transform next = null;
-                for (int c = 0; c < current.childCount; c++)
+                var scene = FindLoadedScene(clean.Substring(0, colon));
+                if (scene.HasValue)
                 {
-                    if (current.GetChild(c).name == parts[i])
-                    { next = current.GetChild(c); break; }
+                    onlyScene = scene;
+                    clean     = clean.Substring(colon + 1).TrimStart('/');
                 }
-                current = next;
             }
+            if (clean.Length == 0) return null;
+            var parts = clean.Split('/');
 
+            if (onlyScene.HasValue)
+                return FindInScene(onlyScene.Value, parts, path);
+
+            var active = SceneManager.GetActiveScene();
+            var found  = FindInScene(active, parts, path);
+            if (found != null) return found;
+
+            // Not in the active scene: the other loaded scenes, which must agree on one object.
+            var matches = new System.Collections.Generic.List<GameObject>();
+            for (int i = 0; i < SceneManager.sceneCount; i++)
+            {
+                var scene = SceneManager.GetSceneAt(i);
+                if (scene == active || !scene.isLoaded) continue;
+                var match = FindInScene(scene, parts, path);
+                if (match != null) matches.Add(match);
+            }
+            if (matches.Count > 1)
+                throw new AmbiguousPathException(path, matches.Select(GetPath).ToList());
+            return matches.Count == 1 ? matches[0] : null;
+        }
+
+        private static GameObject FindInScene(Scene scene, string[] parts, string fullPath)
+        {
+            if (!scene.IsValid() || !scene.isLoaded) return null;
+
+            var level = scene.GetRootGameObjects().Select(go => go.transform).ToList();
+            Transform current = null;
+            string    walked  = scene == SceneManager.GetActiveScene() || SceneManager.sceneCount == 1
+                ? string.Empty
+                : scene.name + ":";
+
+            for (int i = 0; i < parts.Length; i++)
+            {
+                current = PickChild(level, parts[i], walked, fullPath);
+                if (current == null) return null;
+                walked += (i == 0 ? string.Empty : "/") + parts[i];
+                level   = Children(current);
+            }
             return current?.gameObject;
         }
 
-        /// <summary>Returns the full scene hierarchy path of a GameObject.</summary>
+        /// <summary>The child a path segment names: an exact name first, then "Name[n]".</summary>
+        private static Transform PickChild(System.Collections.Generic.List<Transform> level, string segment,
+                                           string walked, string fullPath)
+        {
+            var exact = level.Where(t => t.name == segment).ToList();
+            if (exact.Count == 1) return exact[0];
+            if (exact.Count > 1)
+            {
+                var prefix = walked.Length == 0 || walked.EndsWith(":") ? walked : walked + "/";
+                throw new AmbiguousPathException(fullPath,
+                    exact.Select((t, i) => $"{prefix}{segment}[{i + 1}]").ToList());
+            }
+
+            var m = IndexedName.Match(segment);
+            if (!m.Success) return null;
+            var named = level.Where(t => t.name == m.Groups[1].Value).ToList();
+            int index = int.Parse(m.Groups[2].Value);
+            return index >= 1 && index <= named.Count ? named[index - 1] : null;
+        }
+
+        private static System.Collections.Generic.List<Transform> Children(Transform t)
+        {
+            var list = new System.Collections.Generic.List<Transform>(t.childCount);
+            for (int c = 0; c < t.childCount; c++) list.Add(t.GetChild(c));
+            return list;
+        }
+
+        private static Scene? FindLoadedScene(string nameOrPath)
+        {
+            for (int i = 0; i < SceneManager.sceneCount; i++)
+            {
+                var scene = SceneManager.GetSceneAt(i);
+                if (scene.isLoaded && (scene.name == nameOrPath || scene.path == nameOrPath))
+                    return scene;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// The object's path in the form FindByPath accepts: names joined by '/', an index
+        /// on every name its siblings share, and a "SceneName:" prefix when the object is
+        /// not in the active scene and several scenes are loaded.
+        /// </summary>
         public static string GetPath(GameObject go)
         {
             var parts = new System.Collections.Generic.List<string>();
             for (var t = go.transform; t != null; t = t.parent)
-                parts.Insert(0, t.name);
-            return string.Join("/", parts);
+                parts.Insert(0, Segment(t));
+            var path = string.Join("/", parts);
+
+            var scene = go.scene;
+            // An unsaved scene has no name to prefix with; its objects are still found by
+            // the search through the other loaded scenes.
+            return scene.IsValid() && !string.IsNullOrEmpty(scene.name) &&
+                   SceneManager.sceneCount > 1 && scene != SceneManager.GetActiveScene()
+                ? scene.name + ":" + path
+                : path;
+        }
+
+        /// <summary>The object's name, with its index when siblings share it.</summary>
+        private static string Segment(Transform t)
+        {
+            var siblings = t.parent != null
+                ? Children(t.parent)
+                : (t.gameObject.scene.IsValid()
+                    ? t.gameObject.scene.GetRootGameObjects().Select(g => g.transform).ToList()
+                    : new System.Collections.Generic.List<Transform> { t });
+
+            int same = 0, index = 0;
+            foreach (var s in siblings)
+            {
+                if (s.name != t.name) continue;
+                same++;
+                if (s == t) index = same;
+            }
+            return same > 1 ? $"{t.name}[{index}]" : t.name;
         }
 
         private static string BuildExpectedPath(GameObject parent, string childName) =>

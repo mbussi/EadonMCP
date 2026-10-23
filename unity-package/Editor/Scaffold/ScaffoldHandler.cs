@@ -387,22 +387,32 @@ namespace UnityMcpBridge.Editor.Tools
         public static Task<McpResponse> HideScaffoldAsync() => SetScaffoldActiveAsync(false);
         public static Task<McpResponse> ShowScaffoldAsync() => SetScaffoldActiveAsync(true);
 
+        /// <summary>
+        /// Scaffold zones, anchors and markers are drawn as gizmos only, so hiding them is
+        /// turning their gizmos off (the Level Scaffold overlay's switches). Zones stay
+        /// active, so baked content parented under a zone stays visible.
+        ///
+        /// show_scaffold also reactivates root zones that an earlier version of
+        /// hide_scaffold deactivated.
+        /// </summary>
         private static Task<McpResponse> SetScaffoldActiveAsync(bool active) =>
             MainThreadDispatcher.EnqueueAsync<McpResponse>(() =>
             {
-                int count = 0;
+                global::LevelScaffold.Editor.ScaffoldOverlay.SetAllVisible(active);
 
-                // Operate on root-level scaffold objects only (zones are always roots or
-                // children of organisational containers, never children of other zones).
                 var zones = FindAll<ScaffoldZone>();
-                foreach (var zone in zones)
+                int count = zones.Length;
+                int reactivated = 0;
+                if (active)
                 {
-                    // Only toggle if this zone is not already a child of another zone
-                    if (zone.GetComponentInParent<ScaffoldZone>() == zone)
+                    foreach (var zone in zones)
                     {
-                        Undo.RecordObject(zone.gameObject, active ? "MCP Show Scaffold" : "MCP Hide Scaffold");
-                        zone.gameObject.SetActive(active);
-                        count++;
+                        if (zone.gameObject.activeSelf) continue;
+                        if (zone.transform.parent != null && zone.transform.parent.GetComponentInParent<ScaffoldZone>(true) != null)
+                            continue;
+                        Undo.RecordObject(zone.gameObject, "MCP Show Scaffold");
+                        zone.gameObject.SetActive(true);
+                        reactivated++;
                     }
                 }
 
@@ -412,9 +422,12 @@ namespace UnityMcpBridge.Editor.Tools
                 {
                     active          = active,
                     zones_affected  = count,
+                    zones_reactivated = reactivated,
                     message         = active
-                        ? $"Scaffold visible ({count} zones)."
-                        : $"Scaffold hidden ({count} zones). Call show_scaffold to restore.",
+                        ? $"Scaffold gizmos visible ({count} zones)." +
+                          (reactivated > 0 ? $" Reactivated {reactivated} zone(s) an earlier hide had deactivated." : string.Empty)
+                        : $"Scaffold gizmos hidden ({count} zones). Baked content stays visible. " +
+                          "Call show_scaffold to show them again.",
                 });
             });
 

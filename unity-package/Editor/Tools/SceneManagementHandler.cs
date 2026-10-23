@@ -195,8 +195,8 @@ namespace UnityMcpBridge.Editor.Tools
                 }
 
                 var fromScene = go.scene.name;
-                Undo.RecordObject(go, "MCP Move to Scene");
-                SceneManager.MoveGameObjectToScene(go, targetScene);
+                // Undo.MoveGameObjectToScene records the scene change itself (RecordObject does not).
+                Undo.MoveGameObjectToScene(go, targetScene, "MCP Move to Scene");
 
                 moved.Add(new MovedObjectData
                 {
@@ -228,9 +228,9 @@ namespace UnityMcpBridge.Editor.Tools
             if (!string.IsNullOrEmpty(dir) && !AssetDatabase.IsValidFolder(dir))
                 CreateFolderRecursive(dir);
 
-            // NewSceneMode.Single replaces all loaded scenes; Additive adds alongside them.
-            var sceneMode = (req.SetActive == true) ? NewSceneMode.Single : NewSceneMode.Additive;
-            var scene     = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, sceneMode);
+            // Always alongside the open scenes: NewSceneMode.Single would close every open
+            // scene without asking to save it. set_active then makes the new one active.
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
 
             // Save unless explicitly told not to
             bool shouldSave = req.SaveAfterCreate != false;
@@ -242,6 +242,9 @@ namespace UnityMcpBridge.Editor.Tools
                         $"Scene was created in memory but could not be saved to '{req.ScenePath}'. " +
                         "Check that the path is under Assets/ and the directory exists.");
             }
+
+            if (req.SetActive == true)
+                SceneManager.SetActiveScene(scene);
 
             return McpResponse.Ok(new SceneLoadData
             {

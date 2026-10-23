@@ -10,10 +10,10 @@ namespace UnityMcpBridge.Editor.Tools
         public static Task<McpResponse> CreateSequenceAsync(CreateSequenceRequest req) =>
             MainThreadDispatcher.EnqueueAsync<McpResponse>(() =>
             {
-#if !CM2 && !CM3
+#if !CM3
                 return McpResponse.Fail("CINEMACHINE_NOT_FOUND",
-                    "Cinemachine package is not installed. " +
-                    "Install com.unity.cinemachine via the Package Manager.");
+                    "Cinemachine 3 is not installed. The cutscene tools need com.unity.cinemachine 3.x " +
+                    "(Cinemachine 2.x is not supported); install or upgrade it in the Package Manager.");
 #else
                 if (string.IsNullOrWhiteSpace(req?.Template))
                     return McpResponse.Fail("INVALID_PARAMS", "'template' is required.");
@@ -23,9 +23,9 @@ namespace UnityMcpBridge.Editor.Tools
                 return req.Template switch
                 {
                     "DialogueCamera"    => DialogueCameraTemplate.Execute(req),
-                    // "AreaReveal"        => AreaRevealTemplate.Execute(req),
-                    // "FocusCut"          => FocusCutTemplate.Execute(req),
-                    // "ArrivalFlythrough" => ArrivalFlythroughTemplate.Execute(req),
+                    "AreaReveal"        => AreaRevealTemplate.Execute(req),
+                    "FocusCut"          => FocusCutTemplate.Execute(req),
+                    "ArrivalFlythrough" => ArrivalFlythroughTemplate.Execute(req),
                     _ => McpResponse.Fail("UNKNOWN_TEMPLATE",
                         $"Unknown template '{req.Template}'. " +
                         "Call get_cutscene_templates for the list of available templates."),

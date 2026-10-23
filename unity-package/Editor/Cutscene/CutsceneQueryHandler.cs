@@ -10,16 +10,15 @@ namespace UnityMcpBridge.Editor.Tools
         public static Task<McpResponse> GetTemplatesAsync() =>
             MainThreadDispatcher.EnqueueAsync<McpResponse>(() =>
             {
-#if !CM2 && !CM3
+#if !CM3
                 return McpResponse.Ok(new CutsceneTemplateListData
                 {
                     CinemachineVersion = null,
                     TimelineVersion    = null,
                     Templates          = System.Array.Empty<CutsceneTemplateInfo>(),
                     Message =
-                        "Cinemachine package not found. " +
-                        "Install com.unity.cinemachine via the Package Manager " +
-                        "to use cutscene tools.",
+                        "Cinemachine 3 not found. The cutscene tools need com.unity.cinemachine 3.x " +
+                        "(Cinemachine 2.x is not supported); install or upgrade it in the Package Manager.",
                 });
 #else
                 return McpResponse.Ok(new CutsceneTemplateListData

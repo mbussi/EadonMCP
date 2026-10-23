@@ -282,6 +282,10 @@ namespace UnityMcpBridge.Editor.Core
 
                 return McpResponse.Fail("NOT_FOUND", $"No route for {method} {path}");
             }
+            catch (AmbiguousPathException ex)
+            {
+                return McpResponse.Fail("AMBIGUOUS_PATH", ex.Message);
+            }
             catch (OperationCanceledException)
             {
                 return McpResponse.Fail("CANCELLED", "The job was cancelled before Unity started it.");

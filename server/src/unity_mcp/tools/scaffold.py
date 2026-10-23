@@ -354,9 +354,11 @@ async def update_gameplay_marker(
 
 async def hide_scaffold() -> str:
     """
-    Sets all root-level ScaffoldZone GameObjects inactive.
+    Hide the scaffold gizmos (zones, anchors, markers, radii, labels) in the Scene view.
 
-    Non-destructive — all scaffold data is preserved. Call show_scaffold to restore.
+    Scaffold is drawn as gizmos only, so this changes nothing in the scene: baked
+    content stays visible, and the Level Scaffold overlay's switches show the same
+    state. It lasts for the editor session. Call show_scaffold to show them again.
 
     Returns: { active: false, zones_affected, message }
     """
@@ -371,9 +373,11 @@ async def hide_scaffold() -> str:
 
 async def show_scaffold() -> str:
     """
-    Re-activates all root-level ScaffoldZone GameObjects. Reverses hide_scaffold.
+    Show the scaffold gizmos again. Reverses hide_scaffold.
 
-    Returns: { active: true, zones_affected, message }
+    Also reactivates root zones that an earlier version of hide_scaffold deactivated.
+
+    Returns: { active: true, zones_affected, zones_reactivated, message }
     """
     try:
         data = await UnityClient.instance().post("/tools/scaffold/show_scaffold", {})
@@ -507,8 +511,10 @@ async def execute_bake(
     ── PARAMETERS ───────────────────────────────────────────────────────────
 
     confirmations:       List of { marker_path, asset_guid } pairs
-    hide_scaffold_after: If true, set the affected zone(s) inactive after baking.
-                         Reversible via show_scaffold(). Default false.
+    hide_scaffold_after: If true, hide the scaffold gizmos after baking (all zones:
+                         the gizmo switches are global), so the baked prefabs can be
+                         seen without the guides. Reversible via show_scaffold().
+                         Default false.
 
     Returns: { baked_count, instances[{ marker_label, instance_path }], warnings[] }
     """

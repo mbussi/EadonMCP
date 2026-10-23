@@ -26,11 +26,6 @@
     "versionDefines": [
         {
             "name": "com.unity.cinemachine",
-            "expression": "[2.0,3.0)",
-            "define": "CM2"
-        },
-        {
-            "name": "com.unity.cinemachine",
             "expression": "[3.0,999.0)",
             "define": "CM3"
         },

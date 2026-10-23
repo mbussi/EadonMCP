@@ -11,10 +11,7 @@ using UnityEngine.Timeline;
 using UnityMcpBridge.Editor.Core;
 using UnityMcpBridge.Editor.Cutscene;
 using UnityMcpBridge.Editor.Tools;
-#if CM2
-using Cinemachine;
-using Cinemachine.Timeline;
-#elif CM3
+#if CM3
 using Unity.Cinemachine;
 #endif
 
@@ -25,7 +22,7 @@ namespace UnityMcpBridge.Editor.Cutscene.Templates
     ///
     /// Scene objects created:
     ///   /Cutscenes/{name}/
-    ///     VCam_Dialogue_{name}   [CinemachineVirtualCamera]  — disabled, activated by Timeline
+    ///     VCam_Dialogue_{name}   [CinemachineCamera]          — disabled, activated by Timeline
     ///     LookTarget_{name}      [empty GameObject]          — NPC look-at anchor
     ///     PlayableDirector                                   — bound to .playable asset
     ///
@@ -42,8 +39,8 @@ namespace UnityMcpBridge.Editor.Cutscene.Templates
 
         internal static McpResponse Execute(CreateSequenceRequest req)
         {
-#if !CM2 && !CM3
-            return McpResponse.Fail("CINEMACHINE_NOT_FOUND", "Cinemachine is required.");
+#if !CM3
+            return McpResponse.Fail("CINEMACHINE_NOT_FOUND", "Cinemachine 3 is required.");
 #else
             var warnings = new List<string>();
 
@@ -110,6 +107,11 @@ namespace UnityMcpBridge.Editor.Cutscene.Templates
 
             // ── Scene structure ──────────────────────────────────────────── //
             var container  = CutsceneTemplateBase.EnsureSequenceContainer(req.SequenceName);
+            var settings   = CutsceneTemplateBase.RecordSettings(container, "DialogueCamera");
+            settings.player     = playerGo.transform;
+            settings.npc        = npcGo.transform;
+            settings.cameraSide = resolvedSide;
+            settings.lookOffset = lookOffset;
             var timelinePath = CutsceneTemplateBase.ResolveTimelinePath(
                 req.TimelinePath, req.SequenceName);
 
@@ -122,11 +124,7 @@ namespace UnityMcpBridge.Editor.Cutscene.Templates
             // ── Template-specific camera and Timeline ─────────────────────── //
             string vcamPath;
             string[] signalsCreated;
-#if CM2
-            Build_CM2(req.SequenceName, container, cameraPos, lookTargetGo.transform,
-                      duration, blendIn, blendOut, timelinePath,
-                      out vcamPath, out signalsCreated, warnings);
-#elif CM3
+#if CM3
             Build_CM3(req.SequenceName, container, cameraPos, lookTargetGo.transform,
                       duration, blendIn, blendOut, timelinePath,
                       out vcamPath, out signalsCreated, warnings);
@@ -152,101 +150,6 @@ namespace UnityMcpBridge.Editor.Cutscene.Templates
             });
 #endif
         }
-
-        // ------------------------------------------------------------------ //
-        //  CM2 implementation                                                //
-        // ------------------------------------------------------------------ //
-
-#if CM2
-        private static void Build_CM2(
-            string      sequenceName,
-            GameObject  container,
-            Vector3     cameraPos,
-            Transform   lookTarget,
-            float       duration,
-            float       blendIn,
-            float       blendOut,
-            string      timelinePath,
-            out string  vcamPath,
-            out string[] signalsCreated,
-            List<string> warnings)
-        {
-            // ── Virtual camera ───────────────────────────────────────────── //
-            var vcamGo = new GameObject($"VCam_Dialogue_{sequenceName}");
-            Undo.RegisterCreatedObjectUndo(vcamGo, "MCP Create VCam");
-            vcamGo.transform.SetParent(container.transform, worldPositionStays: false);
-            vcamGo.transform.position = cameraPos;
-            vcamGo.SetActive(false);           // ActivationTrack will enable it
-
-            var vcam = vcamGo.AddComponent<CinemachineVirtualCamera>();
-            vcam.m_LookAt   = lookTarget;
-            vcam.m_Follow   = null;
-            vcam.m_Priority = 11;              // Higher than a typical follow cam (10)
-
-            // Hard look-at: camera locks its aim to the target
-            vcam.AddCinemachineComponent<CinemachineHardLookAt>();
-
-            vcamPath = PlacementHandler.GetPath(vcamGo);
-
-            // ── Timeline asset ────────────────────────────────────────────── //
-            var timeline = CutsceneTemplateBase.CreateTimelineAsset(timelinePath);
-
-            // Track 1: CinemachineTrack — activates this VCam via the clip
-            var cineTrack = timeline.CreateTrack<CinemachineTrack>(null, "Camera");
-            var cineClip  = cineTrack.CreateDefaultClip();
-            cineClip.start           = 0.0;
-            cineClip.duration        = duration;
-            cineClip.easeInDuration  = blendIn;
-            cineClip.easeOutDuration = blendOut;
-
-            // Track 2: ActivationTrack — enables the VCam GameObject
-            var activationTrack = timeline.CreateTrack<ActivationTrack>(null, "VCam Active");
-            var activationClip  = activationTrack.CreateDefaultClip();
-            activationClip.start    = 0.0;
-            activationClip.duration = duration;
-
-            // Track 3: SignalTrack — fires game events at blend-in and blend-out points
-            var signalTrack = timeline.CreateTrack<SignalTrack>(null, "Events");
-            var sigStart    = CutsceneTemplateBase.GetOrCreateSignalAsset("dialogue_start");
-            var sigEnd      = CutsceneTemplateBase.GetOrCreateSignalAsset("dialogue_end");
-            var emitterStart = signalTrack.CreateMarker<SignalEmitter>(blendIn);
-            emitterStart.asset       = sigStart;
-            emitterStart.retroActive = false;
-            var emitterEnd   = signalTrack.CreateMarker<SignalEmitter>(duration - blendOut);
-            emitterEnd.asset         = sigEnd;
-            emitterEnd.retroActive   = false;
-
-            signalsCreated = new[] { "dialogue_start", "dialogue_end" };
-
-            // ── PlayableDirector ─────────────────────────────────────────── //
-            var director = container.AddComponent<PlayableDirector>();
-            Undo.RecordObject(container, "MCP Add PlayableDirector");
-            director.playableAsset  = timeline;
-            director.playOnAwake    = false;
-            director.timeUpdateMode = DirectorUpdateMode.GameTime;
-
-            // Bind CinemachineShot clip → virtual camera
-            var shot    = cineClip.asset as CinemachineShot;
-            if (shot != null)
-            {
-                var refName = GUID.Generate().ToString();
-                shot.VirtualCamera.exposedName = refName;
-                director.SetReferenceValue(refName, vcam);
-            }
-            else
-            {
-                warnings.Add(
-                    "Could not bind VCam to CinemachineTrack clip (CinemachineShot asset was null). " +
-                    "Open the Timeline asset and drag the virtual camera onto the Cinemachine clip manually.");
-            }
-
-            // Bind ActivationTrack → VCam GameObject
-            director.SetGenericBinding(activationTrack, vcamGo);
-
-            EditorUtility.SetDirty(timeline);
-            AssetDatabase.SaveAssets();
-        }
-#endif
 
         // ------------------------------------------------------------------ //
         //  CM3 implementation                                                //
@@ -336,7 +239,7 @@ namespace UnityMcpBridge.Editor.Cutscene.Templates
         //  Camera position calculation                                       //
         // ------------------------------------------------------------------ //
 
-        private static Vector3 ComputeCameraPosition(
+        internal static Vector3 ComputeCameraPosition(
             Vector3  playerPos,
             Vector3  npcPos,
             string   cameraSide,

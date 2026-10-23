@@ -12,10 +12,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.Timeline;
 using UnityMcpBridge.Editor.Core;
 using UnityMcpBridge.Editor.Cutscene;
-#if CM2
-using Cinemachine;
-using Cinemachine.Timeline;
-#elif CM3
+#if CM3
 using Unity.Cinemachine;
 using UnityEngine.Splines;
 #endif
@@ -131,7 +128,7 @@ namespace UnityMcpBridge.Editor.Tools
 
                 // Get current values from the Cinemachine clip
                 float curDuration = 0f, curBlendIn = 0f, curBlendOut = 0f;
-#if CM2 || CM3
+#if CM3
                 var cineTrack = GetTrack<CinemachineTrack>(timeline);
                 if (cineTrack != null)
                 {
@@ -146,10 +143,54 @@ namespace UnityMcpBridge.Editor.Tools
 #endif
 
                 float duration = newDuration ?? curDuration;
-                float blendIn  = newBlendIn  ?? newEaseIn  ?? curBlendIn;
-                float blendOut = newBlendOut ?? newEaseOut ?? curBlendOut;
-
                 if (duration <= 0f) duration = curDuration; // guard against 0
+
+                var settings     = containerGo.GetComponent<global::UnityMcpBridge.CutsceneSequenceSettings>();
+                bool pathTemplate = req.Template == "AreaReveal" || req.Template == "ArrivalFlythrough";
+
+                // DialogueCamera / FocusCut: blend_in / blend_out are seconds.
+                // AreaReveal / ArrivalFlythrough: ease_in / ease_out are fractions of the
+                // duration; the Timeline clip's ease is that fraction times the duration.
+                float blendIn, blendOut;        // seconds, for the Timeline clip
+                float easeIn = 0f, easeOut = 0f; // fractions, for the camera path
+                if (pathTemplate)
+                {
+                    float curEaseIn  = settings != null ? settings.easeIn
+                                     : curDuration > 0f ? curBlendIn  / curDuration : 0.2f;
+                    float curEaseOut = settings != null ? settings.easeOut
+                                     : curDuration > 0f ? curBlendOut / curDuration : 0.2f;
+                    if (settings == null && (newEaseIn.HasValue || newEaseOut.HasValue || newDuration.HasValue))
+                        warnings.Add("This sequence was created before its settings were stored, so its current " +
+                                     "ease fractions were estimated from the Timeline clip.");
+
+                    easeIn  = Mathf.Clamp01(newEaseIn  ?? curEaseIn);
+                    easeOut = Mathf.Clamp01(newEaseOut ?? curEaseOut);
+                    if (easeIn + easeOut > 0.9f)
+                    {
+                        easeIn  *= 0.9f / (easeIn + easeOut);
+                        easeOut  = 0.9f - easeIn;
+                    }
+                    blendIn  = easeIn  * duration;
+                    blendOut = easeOut * duration;
+
+                    if (newBlendIn.HasValue || newBlendOut.HasValue)
+                        warnings.Add($"{req.Template} uses ease_in / ease_out (fractions of the duration); " +
+                                     "blend_in / blend_out were ignored.");
+                    if (settings != null)
+                    {
+                        Undo.RecordObject(settings, "MCP Update Cutscene Settings");
+                        settings.easeIn  = easeIn;
+                        settings.easeOut = easeOut;
+                    }
+                }
+                else
+                {
+                    blendIn  = newBlendIn  ?? curBlendIn;
+                    blendOut = newBlendOut ?? curBlendOut;
+                    if (newEaseIn.HasValue || newEaseOut.HasValue)
+                        warnings.Add($"{req.Template} uses blend_in / blend_out (seconds); " +
+                                     "ease_in / ease_out were ignored.");
+                }
 
                 bool durationChanged = newDuration.HasValue;
                 bool blendChanged    = newBlendIn.HasValue || newBlendOut.HasValue ||
@@ -163,12 +204,12 @@ namespace UnityMcpBridge.Editor.Tools
                 switch (req.Template)
                 {
                     case "DialogueCamera":
-                        UpdateDialogueCamera(containerGo, seqName, p, updated, warnings);
+                        UpdateDialogueCamera(containerGo, seqName, p, settings, updated, warnings);
                         break;
 
                     case "AreaReveal":
                         UpdatePathSequence(containerGo, timeline, seqName, p,
-                            duration, blendIn, blendOut,
+                            duration, easeIn, easeOut,
                             "reveal_start", "reveal_complete",
                             updated, warnings);
                         break;
@@ -179,7 +220,7 @@ namespace UnityMcpBridge.Editor.Tools
 
                     case "ArrivalFlythrough":
                         UpdatePathSequence(containerGo, timeline, seqName, p,
-                            duration, blendIn, blendOut,
+                            duration, easeIn, easeOut,
                             "arrival_start", "arrival_complete",
                             updated, warnings);
                         UpdateArrivalLookTarget(containerGo, seqName, p, updated);
@@ -223,7 +264,7 @@ namespace UnityMcpBridge.Editor.Tools
             List<string>  warnings)
         {
             // Cinemachine clip
-#if CM2 || CM3
+#if CM3
             var cineTrack = GetTrack<CinemachineTrack>(timeline);
             if (cineTrack != null)
             {
@@ -296,6 +337,7 @@ namespace UnityMcpBridge.Editor.Tools
             GameObject   container,
             string       seqName,
             JObject      p,
+            global::UnityMcpBridge.CutsceneSequenceSettings settings,
             List<string> updated,
             List<string> warnings)
         {
@@ -309,25 +351,39 @@ namespace UnityMcpBridge.Editor.Tools
                 return;
             }
 
-            // Find the NPC (VCam m_LookAt references it)
-            // We need the NPC position to reconstruct the look-at world position.
-            // Since LookTarget is already positioned in world space, we derive the
-            // NPC root from the LookTarget minus the current offset.
-            // Simplest: just read the look_offset and update LookTarget's position.
-            // But we don't know the NPC position without re-parsing the original params.
-            // Instead, treat rawOffset as a raw world-space adjustment: keep LookTarget
-            // on the NPC's XZ and apply the Y (height) from the new offset.
+            if (settings == null || settings.npc == null)
+            {
+                warnings.Add(settings == null
+                    ? "This sequence was created before its settings were stored, so the NPC is unknown " +
+                      "and look_offset was not applied. Recreate it with create_cutscene_sequence."
+                    : "The NPC this sequence was built for no longer exists; look_offset was not applied.");
+                return;
+            }
 
-            // The LookTarget was placed at: npcPos + lookOffset (at creation time).
-            // Without knowing npcPos, we can't fully recalculate. The safest update:
-            // shift LookTarget vertically by the new look_offset.y value.
+            var offset = new Vector3(
+                rawOffset.Length > 0 ? rawOffset[0] : settings.lookOffset.x,
+                rawOffset.Length > 1 ? rawOffset[1] : settings.lookOffset.y,
+                rawOffset.Length > 2 ? rawOffset[2] : settings.lookOffset.z);
+
+            // Exactly as at creation: the look target is the NPC's position plus the offset,
+            // and the camera height follows the offset's Y.
             Undo.RecordObject(lookTargetGo.transform, "MCP Update LookTarget");
-            var pos = lookTargetGo.transform.position;
-            lookTargetGo.transform.position = new Vector3(
-                rawOffset.Length > 0 ? pos.x + rawOffset[0] : pos.x,
-                rawOffset.Length > 1 ? rawOffset[1]          : pos.y, // treat Y as absolute height
-                rawOffset.Length > 2 ? pos.z + rawOffset[2] : pos.z);
+            lookTargetGo.transform.position = settings.npc.position + offset;
             EditorUtility.SetDirty(lookTargetGo);
+
+            var vcamGo = container.transform.Find($"VCam_Dialogue_{seqName}")?.gameObject;
+            if (vcamGo != null && settings.player != null)
+            {
+                Undo.RecordObject(vcamGo.transform, "MCP Update Dialogue Camera");
+                vcamGo.transform.position = global::UnityMcpBridge.Editor.Cutscene.Templates.DialogueCameraTemplate.ComputeCameraPosition(
+                    settings.player.position, settings.npc.position,
+                    string.IsNullOrEmpty(settings.cameraSide) ? "right" : settings.cameraSide,
+                    offset.y, out _);
+                EditorUtility.SetDirty(vcamGo);
+            }
+
+            Undo.RecordObject(settings, "MCP Update Cutscene Settings");
+            settings.lookOffset = offset;
             updated.Add("look_offset");
         }
 
@@ -359,23 +415,7 @@ namespace UnityMcpBridge.Editor.Tools
                 else
                 {
                     bool applied = false;
-#if CM2
-                    var pathGo = container.transform.Find($"Path_{seqName}")?.gameObject;
-                    var path   = pathGo?.GetComponent<CinemachineSmoothPath>();
-                    if (path != null)
-                    {
-                        Undo.RecordObject(path, "MCP Update Waypoints");
-                        path.m_Waypoints = rawWp
-                            .Select(wp => new CinemachineSmoothPath.Waypoint
-                            {
-                                position = new Vector3(wp[0], wp[1], wp[2]),
-                                roll     = 0f,
-                            })
-                            .ToArray();
-                        EditorUtility.SetDirty(pathGo);
-                        applied = true;
-                    }
-#elif CM3
+#if CM3
                     var pathGo = container.transform.Find($"Path_{seqName}")?.gameObject;
                     var sc     = pathGo?.GetComponent<SplineContainer>();
                     if (sc != null)
@@ -428,9 +468,7 @@ namespace UnityMcpBridge.Editor.Tools
                 trackClip.duration = duration;
 
                 var curve = BuildEasedCurve(duration, easeIn, easeOut);
-#if CM2
-                apa.clip.SetCurve("", typeof(CinemachineDollyCart), "m_Position", curve);
-#elif CM3
+#if CM3
                 apa.clip.SetCurve("", typeof(CinemachineSplineCart), "m_SplinePosition", curve);
 #endif
                 EditorUtility.SetDirty(apa.clip);
@@ -486,11 +524,7 @@ namespace UnityMcpBridge.Editor.Tools
             Vector3 targetPos = Vector3.zero;
             bool    foundTarget = false;
 
-#if CM2
-            var vcam = vcamGo.GetComponent<CinemachineVirtualCamera>();
-            if (vcam?.m_LookAt != null)
-            { targetPos = vcam.m_LookAt.position; foundTarget = true; }
-#elif CM3
+#if CM3
             var vcam = vcamGo.GetComponent<CinemachineCamera>();
             if (vcam?.Target.LookAtTarget != null)
             { targetPos = vcam.Target.LookAtTarget.position; foundTarget = true; }

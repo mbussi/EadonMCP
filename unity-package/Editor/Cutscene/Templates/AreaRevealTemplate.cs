@@ -10,10 +10,7 @@ using UnityEngine.Timeline;
 using UnityMcpBridge.Editor.Core;
 using UnityMcpBridge.Editor.Cutscene;
 using UnityMcpBridge.Editor.Tools;
-#if CM2
-using Cinemachine;
-using Cinemachine.Timeline;
-#elif CM3
+#if CM3
 using Unity.Cinemachine;
 using UnityEngine.Splines;
 #endif
@@ -24,9 +21,9 @@ namespace UnityMcpBridge.Editor.Cutscene.Templates
     /// AreaReveal — camera sweeps along a waypoint path to show a location.
     ///
     /// Scene objects created:
-    ///   Path_{name}         CinemachineSmoothPath (CM2) / SplineContainer (CM3)
-    ///   Cart_{name}         CinemachineDollyCart  (CM2) / CinemachineSplineCart (CM3)
-    ///   VCam_Reveal_{name}  CinemachineVirtualCamera — follows cart, looks at target or along path
+    ///   Path_{name}         SplineContainer
+    ///   Cart_{name}         CinemachineSplineCart
+    ///   VCam_Reveal_{name}  CinemachineCamera — follows cart, looks at target or along path
     ///   PlayableDirector    bound to .playable asset
     ///
     /// Timeline tracks:
@@ -39,8 +36,8 @@ namespace UnityMcpBridge.Editor.Cutscene.Templates
     {
         internal static McpResponse Execute(CreateSequenceRequest req)
         {
-#if !CM2 && !CM3
-            return McpResponse.Fail("CINEMACHINE_NOT_FOUND", "Cinemachine is required.");
+#if !CM3
+            return McpResponse.Fail("CINEMACHINE_NOT_FOUND", "Cinemachine 3 is required.");
 #else
             var p         = req.Params;
             // var rawWp     = p?["waypoints"]?.ToObject<float[][]>();
@@ -81,6 +78,9 @@ namespace UnityMcpBridge.Editor.Cutscene.Templates
             var warnings     = new List<string>();
             var container    = CutsceneTemplateBase.EnsureSequenceContainer(req.SequenceName);
             var timelinePath = CutsceneTemplateBase.ResolveTimelinePath(req.TimelinePath, req.SequenceName);
+            var settings     = CutsceneTemplateBase.RecordSettings(container, "AreaReveal");
+            settings.easeIn  = easeIn;
+            settings.easeOut = easeOut;
 
             Undo.SetCurrentGroupName($"MCP Create {req.SequenceName}");
             int undoGroup = Undo.GetCurrentGroup();
@@ -88,11 +88,7 @@ namespace UnityMcpBridge.Editor.Cutscene.Templates
             string vcamPath;
             string[] signalsCreated;
 
-#if CM2
-            Build_CM2(req.SequenceName, container, rawWp, lookAtGo,
-                duration, easeIn, easeOut, timelinePath,
-                out vcamPath, out signalsCreated, warnings);
-#elif CM3
+#if CM3
             Build_CM3(req.SequenceName, container, rawWp, lookAtGo,
                 duration, easeIn, easeOut, timelinePath,
                 out vcamPath, out signalsCreated, warnings);
@@ -121,137 +117,6 @@ namespace UnityMcpBridge.Editor.Cutscene.Templates
             });
 #endif
         }
-
-        // ------------------------------------------------------------------ //
-        //  CM2                                                                //
-        // ------------------------------------------------------------------ //
-
-#if CM2
-        private static void Build_CM2(
-            string       name,
-            GameObject   container,
-            float[][]    waypoints,
-            GameObject   lookAtGo,
-            float        duration,
-            float        easeIn,
-            float        easeOut,
-            string       timelinePath,
-            out string   vcamPath,
-            out string[] signalsCreated,
-            List<string> warnings)
-        {
-            // Path (at world origin so local == world for waypoints)
-            var pathGo = CreateChild(container, $"Path_{name}");
-            pathGo.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
-            var path           = pathGo.AddComponent<CinemachineSmoothPath>();
-            path.m_Looped      = false;
-            path.m_Waypoints   = waypoints
-                .Select(wp => new CinemachineSmoothPath.Waypoint
-                {
-                    position = new Vector3(wp[0], wp[1], wp[2]),
-                    roll     = 0f,
-                })
-                .ToArray();
-
-            // Cart
-            var cartGo = CreateChild(container, $"Cart_{name}");
-            cartGo.transform.position = new Vector3(
-                waypoints[0][0], waypoints[0][1], waypoints[0][2]);
-            var cart               = cartGo.AddComponent<CinemachineDollyCart>();
-            cart.m_Path            = path;
-            cart.m_Position        = 0f;
-            cart.m_PositionUnits   = CinemachinePathBase.PositionUnits.Normalized;
-            cartGo.AddComponent<Animator>(); // required for AnimationTrack binding
-
-            // VCam
-            var vcamGo = CreateChild(container, $"VCam_Reveal_{name}");
-            vcamGo.SetActive(false);
-            var vcam        = vcamGo.AddComponent<CinemachineVirtualCamera>();
-            vcam.m_Follow   = cartGo.transform;
-            vcam.m_Priority = 11;
-            vcam.AddCinemachineComponent<CinemachineHardLockToTarget>();
-
-            if (lookAtGo != null)
-            {
-                vcam.m_LookAt = lookAtGo.transform;
-                vcam.AddCinemachineComponent<CinemachineHardLookAt>();
-            }
-            else
-            {
-                // Face along path: use cart's rotation (DollyCart auto-faces path tangent)
-                vcam.AddCinemachineComponent<CinemachineSameAsFollowTarget>();
-            }
-
-            vcamPath = PlacementHandler.GetPath(vcamGo);
-
-            // Timeline
-            var timeline = CutsceneTemplateBase.CreateTimelineAsset(timelinePath);
-            AddCartAnimationTrack_CM2(timeline, cartGo, name, duration, easeIn, easeOut);
-            AddCinemachineTrack_CM2(timeline, vcam, duration, easeIn, easeOut,
-                out var director, container);
-            AddActivationTrack(timeline, director, vcamGo, duration);
-            AddSignalTrack(timeline, "reveal_start", 0.0, "reveal_complete", duration);
-
-            signalsCreated = new[] { "reveal_start", "reveal_complete" };
-            EditorUtility.SetDirty(timeline);
-            AssetDatabase.SaveAssets();
-        }
-
-        private static void AddCartAnimationTrack_CM2(
-            TimelineAsset timeline,
-            GameObject    cartGo,
-            string        name,
-            float         duration,
-            float         easeIn,
-            float         easeOut)
-        {
-            // Build an eased 0→1 curve using the ease fractions
-            var curve = BuildEasedCurve(duration, easeIn, easeOut);
-
-            var animClip      = new AnimationClip { name = $"CartAnim_{name}" };
-            animClip.SetCurve("", typeof(CinemachineDollyCart), "m_Position", curve);
-            AssetDatabase.AddObjectToAsset(animClip, timeline);
-
-            var animTrack = timeline.CreateTrack<AnimationTrack>(null, "Cart");
-            var trackClip = animTrack.CreateDefaultClip();
-            trackClip.start    = 0.0;
-            trackClip.duration = duration;
-            if (trackClip.asset is AnimationPlayableAsset apa)
-                apa.clip = animClip;
-
-            // Bind to the cart's Animator
-            // Note: using GetComponent because we added it in Build_CM2
-        }
-
-        private static void AddCinemachineTrack_CM2(
-            TimelineAsset timeline,
-            CinemachineVirtualCamera vcam,
-            float duration, float easeIn, float easeOut,
-            out PlayableDirector director,
-            GameObject container)
-        {
-            var cineTrack = timeline.CreateTrack<CinemachineTrack>(null, "Camera");
-            var cineClip  = cineTrack.CreateDefaultClip();
-            cineClip.start           = 0.0;
-            cineClip.duration        = duration;
-            cineClip.easeInDuration  = easeIn;
-            cineClip.easeOutDuration = easeOut;
-
-            director = container.AddComponent<PlayableDirector>();
-            Undo.RecordObject(container, "MCP Add PlayableDirector");
-            director.playableAsset  = timeline;
-            director.playOnAwake    = false;
-            director.timeUpdateMode = DirectorUpdateMode.GameTime;
-
-            var shot = cineClip.asset as CinemachineShot;
-            if (shot != null)
-            {
-                var refName = GUID.Generate().ToString();
-                shot.VirtualCamera.exposedName = refName;
-                director.SetReferenceValue(refName, vcam);
-            }
-        }
-#endif
 
         // ------------------------------------------------------------------ //
         //  CM3                                                                //
@@ -311,8 +176,9 @@ namespace UnityMcpBridge.Editor.Cutscene.Templates
             var cineClip  = cineTrack.CreateDefaultClip();
             cineClip.start           = 0.0;
             cineClip.duration        = duration;
-            cineClip.easeInDuration  = easeIn;
-            cineClip.easeOutDuration = easeOut;
+            // ease_in / ease_out are fractions of the duration; the clip's ease is in seconds.
+            cineClip.easeInDuration  = easeIn  * duration;
+            cineClip.easeOutDuration = easeOut * duration;
 
             var director = container.AddComponent<PlayableDirector>();
             Undo.RecordObject(container, "MCP Add PlayableDirector");
@@ -380,7 +246,7 @@ namespace UnityMcpBridge.Editor.Cutscene.Templates
 #endif
 
         // ------------------------------------------------------------------ //
-        //  Shared track helpers (CM2 and CM3 both use Timeline + Signal API) //
+        //  Shared track helpers (Timeline + Signal API) //
         // ------------------------------------------------------------------ //
 
         private static void AddActivationTrack(

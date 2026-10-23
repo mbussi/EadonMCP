@@ -462,7 +462,7 @@ Places the chosen prefabs at all resolved marker positions. This is the point of
 ---
 
 ### `hide_scaffold` / `show_scaffold`
-Toggles scaffold object visibility without removing them from the scene.
+Hides or shows the scaffold gizmos (zones, anchors, markers) in the Scene view, the same switches as the Level Scaffold overlay. Nothing in the scene changes, and placed prefabs stay visible.
 
 | | |
 |:---:|:---|

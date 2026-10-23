@@ -222,9 +222,10 @@ async def manage_scene(
         returned for each detachment).
 
     "create"
-        Create a new empty scene asset and load it additively.
+        Create a new empty scene asset and load it additively, alongside the
+        open scenes (nothing is closed).
         scene_path        : required, e.g. "Assets/Scenes/Village_SE.unity"
-        set_active        : optional, make it the active scene (default False)
+        set_active        : optional, make the new scene the active one (default False)
         save_after_create : optional, write the .unity file immediately (default True)
 
     Common workflow — fix misplaced objects across a tile boundary:

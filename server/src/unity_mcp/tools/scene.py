@@ -22,6 +22,14 @@ async def get_scene_hierarchy(max_depth: int = -1) -> str:
     position/rotation and local scale, active state, and component type names.
     Children are nested under their parents.
 
+    Object paths (every tool's object_path / parent_path): names joined by '/',
+    e.g. "Village/Props/Barrel". Siblings that share a name get a 1-based index,
+    "Village/Props/Barrel[2]", in the paths tools return and accept; a path
+    without an index that matches several objects fails with AMBIGUOUS_PATH and
+    lists the exact paths. The active scene is searched first, then the other
+    loaded scenes; "Dungeon:Props/Torch" names a scene explicitly. Paths of
+    objects outside the active scene are returned with that prefix.
+
     Call this before any placement operation to understand what already exists
     in the scene and to obtain valid parent_path values for new objects.
 

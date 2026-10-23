@@ -9,10 +9,7 @@ using UnityEngine.Timeline;
 using UnityMcpBridge.Editor.Core;
 using UnityMcpBridge.Editor.Cutscene;
 using UnityMcpBridge.Editor.Tools;
-#if CM2
-using Cinemachine;
-using Cinemachine.Timeline;
-#elif CM3
+#if CM3
 using Unity.Cinemachine;
 #endif
 
@@ -34,8 +31,8 @@ namespace UnityMcpBridge.Editor.Cutscene.Templates
     {
         internal static McpResponse Execute(CreateSequenceRequest req)
         {
-#if !CM2 && !CM3
-            return McpResponse.Fail("CINEMACHINE_NOT_FOUND", "Cinemachine is required.");
+#if !CM3
+            return McpResponse.Fail("CINEMACHINE_NOT_FOUND", "Cinemachine 3 is required.");
 #else
             var p            = req.Params;
             // var targetPath   = p?["target_path"]?.Value<string>();
@@ -71,6 +68,7 @@ namespace UnityMcpBridge.Editor.Cutscene.Templates
             var warnings     = new List<string>();
             var container    = CutsceneTemplateBase.EnsureSequenceContainer(req.SequenceName);
             var timelinePath = CutsceneTemplateBase.ResolveTimelinePath(req.TimelinePath, req.SequenceName);
+            CutsceneTemplateBase.RecordSettings(container, "FocusCut");
 
             Undo.SetCurrentGroupName($"MCP Create {req.SequenceName}");
             int undoGroup = Undo.GetCurrentGroup();
@@ -78,11 +76,7 @@ namespace UnityMcpBridge.Editor.Cutscene.Templates
             string vcamPath;
             string[] signalsCreated;
 
-#if CM2
-            Build_CM2(req.SequenceName, container, cameraPos, targetGo,
-                totalDuration, blendIn, blendOut, timelinePath,
-                out vcamPath, out signalsCreated, warnings);
-#elif CM3
+#if CM3
             Build_CM3(req.SequenceName, container, cameraPos, targetGo,
                 totalDuration, blendIn, blendOut, timelinePath,
                 out vcamPath, out signalsCreated, warnings);
@@ -106,71 +100,6 @@ namespace UnityMcpBridge.Editor.Cutscene.Templates
             });
 #endif
         }
-
-        // ------------------------------------------------------------------ //
-        //  CM2                                                                //
-        // ------------------------------------------------------------------ //
-
-#if CM2
-        private static void Build_CM2(
-            string       name,
-            GameObject   container,
-            Vector3      cameraPos,
-            GameObject   targetGo,
-            float        totalDuration,
-            float        blendIn,
-            float        blendOut,
-            string       timelinePath,
-            out string   vcamPath,
-            out string[] signalsCreated,
-            List<string> warnings)
-        {
-            // Stationary VCam — no follow, just position + look-at
-            var vcamGo = CreateChild(container, $"VCam_Focus_{name}");
-            vcamGo.transform.position = cameraPos;
-            vcamGo.SetActive(false);
-
-            var vcam        = vcamGo.AddComponent<CinemachineVirtualCamera>();
-            vcam.m_Follow   = null;     // no follow — camera stays at vcamGo position
-            vcam.m_LookAt   = targetGo.transform;
-            vcam.m_Priority = 11;
-
-            // Hard look-at: lock aim to the target with no lag
-            vcam.AddCinemachineComponent<CinemachineHardLookAt>();
-
-            vcamPath = PlacementHandler.GetPath(vcamGo);
-
-            // Timeline
-            var timeline  = CutsceneTemplateBase.CreateTimelineAsset(timelinePath);
-            var cineTrack = timeline.CreateTrack<CinemachineTrack>(null, "Camera");
-            var cineClip  = cineTrack.CreateDefaultClip();
-            cineClip.start           = 0.0;
-            cineClip.duration        = totalDuration;
-            cineClip.easeInDuration  = blendIn;
-            cineClip.easeOutDuration = blendOut;
-
-            var director = container.AddComponent<PlayableDirector>();
-            Undo.RecordObject(container, "MCP Add PlayableDirector");
-            director.playableAsset  = timeline;
-            director.playOnAwake    = false;
-            director.timeUpdateMode = DirectorUpdateMode.GameTime;
-
-            var shot = cineClip.asset as CinemachineShot;
-            if (shot != null)
-            {
-                var refName = GUID.Generate().ToString();
-                shot.VirtualCamera.exposedName = refName;
-                director.SetReferenceValue(refName, vcam);
-            }
-
-            AddActivationTrack(timeline, director, vcamGo, totalDuration);
-            AddSignalTrack(timeline, blendIn);
-            signalsCreated = new[] { "focus_held" };
-
-            EditorUtility.SetDirty(timeline);
-            AssetDatabase.SaveAssets();
-        }
-#endif
 
         // ------------------------------------------------------------------ //
         //  CM3                                                                //

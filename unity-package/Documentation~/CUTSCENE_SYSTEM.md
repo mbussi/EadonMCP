@@ -72,77 +72,57 @@ the MCP bridge continues to function normally.
 
 | Package | Minimum version | Role |
 |---|---|---|
-| `com.unity.cinemachine` | 2.9 | Virtual cameras, dolly tracks, smooth paths |
+| `com.unity.cinemachine` | 3.0 | Cinemachine cameras, spline carts, spline paths |
 | `com.unity.timeline` | 1.7 | Playable Director, Cinemachine track, Signal track |
 
-Both are bundled with Unity 2021.3 LTS and later. They are listed as
-optional — the bridge `.asmdef` references them via `versionDefines` so that
-the Cutscene folder compiles with `#if CINEMACHINE` guards when the packages
-are absent.
+Both ship with Unity 6. Cinemachine is optional: the bridge `.asmdef` sets
+the `CM3` define through `versionDefines` when Cinemachine 3.x is installed,
+and the Cutscene code compiles to `CINEMACHINE_NOT_FOUND` errors without it.
 
-### Cinemachine 2.x vs 3.x
+### Cinemachine 3 only
 
-Cinemachine 3.x (shipped with Unity 6) replaced the full public API.
-Both versions are supported via conditional compilation:
+Cinemachine 2.x is not supported (support was removed in 2026-10: it is
+obsolete, and Unity 6.3+ ships with Cinemachine 3). The code uses one guard:
 
-```json
-"versionDefines": [
-  {
-    "name":       "com.unity.cinemachine",
-    "expression": "[2.0,3.0)",
-    "define":     "CM2"
-  },
-  {
-    "name":       "com.unity.cinemachine",
-    "expression": "[3.0,)",
-    "define":     "CM3"
-  }
-]
-```
-
-Inside handler code:
 ```csharp
-#if CM2
-    // CinemachineVirtualCamera, CinemachineSmoothPath, CinemachineDollyCart
-#elif CM3
-    // CmCamera, SplineContainer, CinemachineSplineCart
+#if CM3
+    // CinemachineCamera, SplineContainer, CinemachineSplineCart
 #else
     // return McpResponse.Fail("CINEMACHINE_NOT_FOUND", ...)
 #endif
 ```
 
-See §7 for the full API mapping table.
+With Cinemachine 2.x installed, `CM3` is not defined and the cutscene tools
+report that Cinemachine 3 is required; the rest of the bridge works.
 
 ---
 
 ## 4. Assembly Structure
 
-The cutscene system has no runtime MonoBehaviours — Cinemachine and Timeline
-supply all the components that live on scene objects. The implementation
-therefore lives entirely inside `UnityMcpBridge.Editor`, with two additions to
-its `.asmdef`:
+Cinemachine and Timeline supply the components that make the sequence play.
+The one component of its own is `CutsceneSequenceSettings` on each container
+(see §6), in the runtime assembly `UnityMcpBridge.Runtime` so saved scenes keep
+it. Everything else lives inside `UnityMcpBridge.Editor`:
 
 ```json
 {
   "name": "UnityMcpBridge.Editor",
   "references": [
     "Newtonsoft.Json",
-    "PCGFramework.Runtime",
-    "PCGFramework.Editor",
+    "UnityMcpBridge.Runtime",
     "LevelScaffold",
     "LevelScaffold.Editor",
     "Unity.Timeline",
     "Cinemachine"
   ],
   "versionDefines": [
-    { "name": "com.unity.cinemachine", "expression": "[2.0,3.0)", "define": "CM2" },
-    { "name": "com.unity.cinemachine", "expression": "[3.0,)",    "define": "CM3" }
+    { "name": "com.unity.cinemachine", "expression": "[3.0,999.0)", "define": "CM3" }
   ]
 }
 ```
 
 `Unity.Timeline` is the assembly name for both `com.unity.timeline` versions.
-`Cinemachine` is the assembly name for both Cinemachine 2.x and 3.x.
+The Cinemachine 3 assembly is `Unity.Cinemachine`.
 
 ---
 
@@ -172,8 +152,8 @@ the duration of dialogue, then blends back.
 
 ```
 /Cutscenes/
-  {sequence_name}/                    [container, PlayableDirector]
-    VCam_Dialogue_{sequence_name}     [CinemachineVirtualCamera]
+  {sequence_name}/                    [container, PlayableDirector, CutsceneSequenceSettings]
+    VCam_Dialogue_{sequence_name}     [CinemachineCamera]
       → Body: OrbitalTransposer, offset computed from camera_side
       → Aim:  HardLookAt → NPC look_offset point
 ```
@@ -215,8 +195,8 @@ dungeon entrances, settlement arrivals, boss arenas.
 | `waypoints` | float[3][] | World-space positions for the camera path (minimum 2) |
 | `look_at_path` | string? | Optional hierarchy path of what the camera looks toward throughout. If null, camera faces along the path tangent |
 | `duration` | float | Total length in seconds |
-| `ease_in` | float | Fraction of duration for ease-in (default 0.2) |
-| `ease_out` | float | Fraction of duration for ease-out (default 0.2) |
+| `ease_in` | float | Fraction of duration for ease-in (default 0.2); the Timeline clip's ease is this fraction × the duration, in seconds |
+| `ease_out` | float | Fraction of duration for ease-out (default 0.2); likewise |
 | `sequence_name` | string | |
 | `timeline_path` | string | |
 
@@ -225,9 +205,9 @@ dungeon entrances, settlement arrivals, boss arenas.
 ```
 /Cutscenes/
   {sequence_name}/                      [container, PlayableDirector]
-    Path_{sequence_name}                [CinemachineSmoothPath / SplineContainer]
-    Cart_{sequence_name}                [DollyCart / SplineCart]
-    VCam_Reveal_{sequence_name}         [CinemachineVirtualCamera]
+    Path_{sequence_name}                [SplineContainer]
+    Cart_{sequence_name}                [CinemachineSplineCart]
+    VCam_Reveal_{sequence_name}         [CinemachineCamera]
       → Body: TrackedDolly → Cart
       → Aim:  LookAt → look_at_path (or path tangent if null)
 ```
@@ -269,7 +249,7 @@ close angle on the target, holds briefly, then blends back.
 ```
 /Cutscenes/
   {sequence_name}/                      [container, PlayableDirector]
-    VCam_Focus_{sequence_name}          [CinemachineVirtualCamera]
+    VCam_Focus_{sequence_name}          [CinemachineCamera]
       → Body: HardLockToTarget + offset
       → Aim:  HardLookAt → target
 ```
@@ -297,8 +277,8 @@ AreaReveal; appropriate for first-time arrivals at story-significant places.
 | `waypoints` | float[3][] | Camera path waypoints (minimum 3 for a compelling arc) |
 | `look_at_position` | float[3] | Fixed world-space point the camera faces throughout (the area's visual centre of mass) |
 | `duration` | float | Total length in seconds |
-| `ease_in` | float | Fraction for ease-in (default 0.15) |
-| `ease_out` | float | Fraction for ease-out (default 0.25) |
+| `ease_in` | float | Fraction of duration for ease-in (default 0.15); the Timeline clip's ease is this fraction × the duration |
+| `ease_out` | float | Fraction of duration for ease-out (default 0.25); likewise |
 | `sequence_name` | string | |
 | `timeline_path` | string | |
 
@@ -307,10 +287,10 @@ AreaReveal; appropriate for first-time arrivals at story-significant places.
 ```
 /Cutscenes/
   {sequence_name}/                          [container, PlayableDirector]
-    Path_{sequence_name}                    [CinemachineSmoothPath / SplineContainer]
-    Cart_{sequence_name}                    [DollyCart / SplineCart]
+    Path_{sequence_name}                    [SplineContainer]
+    Cart_{sequence_name}                    [CinemachineSplineCart]
     LookTarget_{sequence_name}              [empty GameObject at look_at_position]
-    VCam_Flythrough_{sequence_name}         [CinemachineVirtualCamera]
+    VCam_Flythrough_{sequence_name}         [CinemachineCamera]
       → Body: TrackedDolly → Cart
       → Aim:  HardLookAt → LookTarget
 ```
@@ -381,40 +361,29 @@ relevant objects and wires the signals to their game systems.
 
 ---
 
-## 7. Cinemachine Version Handling
+## 7. Cinemachine API
 
-The handler files use conditional compilation for the two major Cinemachine APIs.
+The templates use the Cinemachine 3 API (Cinemachine 2.x support was removed):
 
-| Concept | CM 2.x | CM 3.x |
-|---|---|---|
-| Virtual camera component | `CinemachineVirtualCamera` | `CmCamera` |
-| Smooth path | `CinemachineSmoothPath` | `SplineContainer` (via `UnityEngine.Splines`) |
-| Dolly cart | `CinemachineDollyCart` | `CinemachineSplineCart` |
-| Brain | `CinemachineBrain` | `CinemachineBrain` (unchanged) |
-| Look-at target | `.m_LookAt` property | `.Target.TrackingTarget` |
-| Follow target | `.m_Follow` property | `.Target.CustomLookAtTarget` |
+| Concept | Cinemachine 3 |
+|---|---|
+| Camera component | `CinemachineCamera` |
+| Path | `SplineContainer` (via `UnityEngine.Splines`) |
+| Dolly cart | `CinemachineSplineCart` |
+| Brain | `CinemachineBrain` |
+| Look-at target | `.Target.LookAtTarget` |
+| Follow target | `.Target.TrackingTarget` |
 
-Each template file has two implementation blocks:
+### Stored settings
 
-```csharp
-#if CM2
-private static void BuildDialogueCameraVCam_CM2(...)
-{
-    var vcam = go.AddComponent<CinemachineVirtualCamera>();
-    vcam.m_LookAt = lookTarget;
-    // ...
-}
-#elif CM3
-private static void BuildDialogueCameraVCam_CM3(...)
-{
-    var vcam = go.AddComponent<CmCamera>();
-    vcam.Target.TrackingTarget = lookTarget;
-    // ...
-}
-#endif
-```
-
-The public template methods call the appropriate private implementation.
+`create_cutscene_sequence` adds `CutsceneSequenceSettings` to the container,
+recording what the sequence was built from: for DialogueCamera the player, the
+NPC, the resolved camera side and the look offset; for AreaReveal and
+ArrivalFlythrough the ease fractions. `update_cutscene_sequence` uses them to
+recompute a change exactly as at creation: a new `look_offset` moves the look
+target to the NPC's position plus the offset and the camera height with it.
+Sequences created before the settings existed cannot take a `look_offset`
+update (recreate them); their eases are estimated from the Timeline clip.
 
 ---
 

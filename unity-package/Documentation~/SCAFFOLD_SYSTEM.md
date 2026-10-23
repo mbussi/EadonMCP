@@ -392,8 +392,8 @@ All scaffold routes follow the existing bridge conventions: `GET` for read-only 
 | `POST /tools/scaffold/update_marker` | `ScaffoldHandler` | Update a marker's semanticTags or configJson |
 | `POST /tools/scaffold/resolve_markers` | `BakeHandler` | Match semanticTags → PrefabMetadata; return ranked candidates |
 | `POST /tools/scaffold/execute_bake` | `BakeHandler` | Instantiate approved prefabs; update BakeState |
-| `POST /tools/scaffold/hide_scaffold` | `ScaffoldHandler` | Set all scaffold objects inactive (reversible) |
-| `POST /tools/scaffold/show_scaffold` | `ScaffoldHandler` | Re-activate all scaffold objects |
+| `POST /tools/scaffold/hide_scaffold` | `ScaffoldHandler` | Hide the scaffold gizmos (the Level Scaffold overlay's switches); baked content stays visible |
+| `POST /tools/scaffold/show_scaffold` | `ScaffoldHandler` | Show the scaffold gizmos again |
 
 ### 8.2 Request and Response Shapes
 
@@ -572,8 +572,8 @@ Tools live in `mcp-server/src/unity_mcp/tools/scaffold.py`. Each tool follows th
 | `update_gameplay_marker(...)` | `POST /tools/scaffold/update_marker` | Update tags or config on an existing marker |
 | `resolve_scaffold_markers(...)` | `POST /tools/scaffold/resolve_markers` | Match semantic tags → prefab candidates |
 | `execute_bake(...)` | `POST /tools/scaffold/execute_bake` | Instantiate confirmed prefabs |
-| `hide_scaffold()` | `POST /tools/scaffold/hide_scaffold` | Hide all scaffold objects |
-| `show_scaffold()` | `POST /tools/scaffold/show_scaffold` | Show all scaffold objects |
+| `hide_scaffold()` | `POST /tools/scaffold/hide_scaffold` | Hide the scaffold gizmos |
+| `show_scaffold()` | `POST /tools/scaffold/show_scaffold` | Show the scaffold gizmos |
 
 ---
 
@@ -607,7 +607,7 @@ The agent calls `execute_bake` with the confirmed marker→GUID mapping. The `Ba
    d. Parents it to the marker's parent zone container.
    e. Registers the instantiation with `Undo`.
    f. Sets `marker.BakeState = Baked` and `marker.ResolvedPrefabGuid = asset_guid`.
-2. If `hide_scaffold_after` is true, sets all scaffold objects in the affected zones inactive.
+2. If `hide_scaffold_after` is true, hides the scaffold gizmos (for all zones: the switches are global). Baked instances stay visible.
 3. Marks the scene dirty.
 
 ### Zone dressing (separate concern)

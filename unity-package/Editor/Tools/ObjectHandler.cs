@@ -487,8 +487,7 @@ namespace UnityMcpBridge.Editor.Tools
 
                     for (int i = 0; i < count; i++)
                     {
-                        var copy = UnityEngine.Object.Instantiate(source);
-                        Undo.RegisterCreatedObjectUndo(copy, "MCP Duplicate");
+                        var copy = DuplicateKeepingPrefabLink(source);
 
                         // Position / rotation offset accumulated per copy
                         copy.transform.position    = source.transform.position + posOffset * (i + 1);
@@ -519,6 +518,40 @@ namespace UnityMcpBridge.Editor.Tools
                     Warnings     = warnings.ToArray(),
                 });
             });
+
+        /// <summary>
+        /// Duplicates an object the way Ctrl+D does. A prefab instance stays a prefab
+        /// instance with its overrides (Object.Instantiate would make a plain copy that
+        /// has lost the prefab link); other objects are cloned. Registered for Undo.
+        /// </summary>
+        private static GameObject DuplicateKeepingPrefabLink(GameObject source)
+        {
+            if (!PrefabUtility.IsPartOfPrefabInstance(source))
+            {
+                var clone = UnityEngine.Object.Instantiate(source);
+                Undo.RegisterCreatedObjectUndo(clone, "MCP Duplicate");
+                return clone;
+            }
+
+            // Unity's own duplicate (Edit > Duplicate) keeps the prefab connection and every
+            // override. It works on the selection, so the selection is restored afterwards.
+            var previousSelection = Selection.objects;
+            var previousActive    = Selection.activeObject;
+            try
+            {
+                Selection.objects = new UnityEngine.Object[] { source };
+                Unsupported.DuplicateGameObjectsUsingPasteboard();
+                var copy = Selection.activeGameObject;
+                if (copy == null || copy == source)
+                    throw new InvalidOperationException("Unity did not duplicate the object.");
+                return copy;
+            }
+            finally
+            {
+                Selection.objects      = previousSelection;
+                Selection.activeObject = previousActive;
+            }
+        }
 
         // -----------------------------------------------------------------------
         // SerializedProperty reading

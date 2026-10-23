@@ -221,15 +221,11 @@ namespace UnityMcpBridge.Editor.Tools
                     });
                 }
 
-                // ── Optionally hide scaffold zones ───────────────────────── //
+                // ── Optionally hide the scaffold gizmos ──────────────────── //
+                // Not by deactivating zones: the baked instances are children of their
+                // zone and would disappear with it. The gizmo switches are global.
                 if (req.HideScaffoldAfter && affectedZones.Count > 0)
-                {
-                    foreach (var zone in affectedZones)
-                    {
-                        Undo.RecordObject(zone.gameObject, "MCP Hide Scaffold");
-                        zone.gameObject.SetActive(false);
-                    }
-                }
+                    global::LevelScaffold.Editor.ScaffoldOverlay.SetAllVisible(false);
 
                 if (instances.Count > 0 || warnings.Count > 0)
                     EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
