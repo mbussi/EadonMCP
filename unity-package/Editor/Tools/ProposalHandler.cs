@@ -228,7 +228,7 @@ namespace UnityMcpBridge.Editor.Tools
 
                 var failure = $"Operation {failedOp.Id} ({failedOp.Tool}" +
                               (string.IsNullOrWhiteSpace(failedOp.Description) ? "" : $": {failedOp.Description}") +
-                              $") failed: {failedError}. " +
+                              $") failed: {failedError?.TrimEnd('.', ' ')}. " +
                               "Everything the proposal had done was undone, so the scene is unchanged.";
                 ProposalStore.Finish(proposal.Id, ProposalStatus.Failed, results.ToArray(), failure);
 
