@@ -1,0 +1,50 @@
+{
+    "name": "UnityMcpBridge.Editor",
+    "rootNamespace": "UnityMcpBridge.Editor",
+    "references": [
+        "Newtonsoft.Json",
+        "PCGFramework.Runtime",
+        "PCGFramework.Editor",
+        "LevelScaffold",
+        "LevelScaffold.Editor",
+        "Unity.Timeline",
+        "Unity.Cinemachine",
+        "Unity.Splines",
+        "Unity.Mathematics",
+        "Unity.AI.Navigation",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.Universal.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.cinemachine",
+            "expression": "[2.0,3.0)",
+            "define": "CM2"
+        },
+        {
+            "name": "com.unity.cinemachine",
+            "expression": "[3.0,999.0)",
+            "define": "CM3"
+        },
+        {
+            "name":       "com.unity.ai.navigation",
+            "expression": "[1.0,999.0)",
+            "define":     "AI_NAVIGATION"
+        },
+        {
+            "name":       "com.unity.render-pipelines.universal",
+            "expression": "[14.0,999.0)",
+            "define":     "URP"
+        }
+    ],
+    "noEngineReferences": false
+}

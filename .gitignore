@@ -1,0 +1,17 @@
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+*.egg-info/
+
+# Settings assets can hold API keys or machine-specific values: never commit them.
+**/Settings/*.asset
+**/Settings/*.asset.meta
+**/McpBridgeSettings.asset
+**/McpBridgeSettings.asset.meta
