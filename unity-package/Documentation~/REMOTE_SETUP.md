@@ -6,7 +6,7 @@ Each development machine runs the Python MCP server alongside Unity. Claude Desk
 on Machine A connects to whichever machine's server you want to work with.
 
 ```
-Machine A: Claude Desktop ──── HTTP/SSE ────────────────────────┐
+Machine A: Claude Desktop ──── HTTP (streamable-http) ──────────┐
                                                                   ▼
 Machine B: Python MCP server (port 8000) ── localhost:11000 ── Unity Editor
 Machine C: Python MCP server (port 8000) ── localhost:11000 ── Unity Editor
@@ -27,15 +27,12 @@ from there, so you never need to copy it for this setup.
 
 ### 1. Install dependencies
 
-The `uvicorn` package is now required (added to `pyproject.toml`). If you've
-already installed via `uv sync`, run it again:
-
 ```bash
-cd /path/to/UnityMCPServer
+cd <EadonMCP>/server
 uv sync
 ```
 
-### 2. Start the MCP server in SSE mode
+### 2. Start the MCP server in network mode
 
 Run this on each machine you want to access remotely. Unity must also be open.
 
@@ -48,25 +45,29 @@ for example the output of `openssl rand -hex 32`, and keep it out of shared
 files.
 
 ```bash
+# Make a token once and keep it (64 characters)
+export UNITY_MCP_SERVER_TOKEN=$(openssl rand -hex 32)
+echo $UNITY_MCP_SERVER_TOKEN
+
 # Network, port 8000
-UNITY_MCP_SERVER_TOKEN=<your-token> uv run unity-mcp --transport sse --host 0.0.0.0
+uv run unity-mcp --transport streamable-http --host 0.0.0.0
 
 # Custom port (if 8000 is taken)
-UNITY_MCP_SERVER_TOKEN=<your-token> uv run unity-mcp --transport sse --host 0.0.0.0 --port 8001
+uv run unity-mcp --transport streamable-http --host 0.0.0.0 --port 8001
 
 # Or via environment variables
-UNITY_MCP_TRANSPORT=sse UNITY_MCP_SERVER_HOST=0.0.0.0 UNITY_MCP_SERVER_PORT=8000 \
-UNITY_MCP_SERVER_TOKEN=<your-token> unity-mcp
+UNITY_MCP_TRANSPORT=streamable-http UNITY_MCP_SERVER_HOST=0.0.0.0 UNITY_MCP_SERVER_PORT=8000 \
+UNITY_MCP_SERVER_TOKEN=<your-token> uv run unity-mcp
 ```
 
-`--transport streamable-http` works the same way; its URL ends in `/mcp`
-instead of `/sse`.
+`--transport sse` works the same way for older clients; its URL ends in `/sse`
+instead of `/mcp`.
 
 The server prints the URL for clients:
 
 ```
-[unity-mcp] Starting SSE server on 0.0.0.0:8000 (clients must send the UNITY_MCP_SERVER_TOKEN token)
-[unity-mcp] Client URL: http://<this-machine-ip>:8000/sse
+[unity-mcp] Starting STREAMABLE-HTTP server on 0.0.0.0:8000 (clients must send the UNITY_MCP_SERVER_TOKEN token)
+[unity-mcp] Client URL: http://<this-machine-ip>:8000/mcp
 ```
 
 Every client must send the token as an HTTP header:
@@ -93,53 +94,73 @@ ip addr show | grep 'inet '
 Make sure port 8000 (or whichever port you chose) is open for inbound TCP
 connections. On macOS, the system may prompt you when the server first starts.
 
+### 5. Check the connection from the client machine
+
+`server/scripts/remote_check.py` checks the whole path from the machine that
+will connect: a wrong token is refused, the right token opens an MCP session
+and lists the tools, and `ping_unity` reaches Unity. Copy the one file to the
+client machine (uv fetches Python and the MCP library by itself):
+
+```bash
+uv run --with "mcp>=2.3,<3" remote_check.py <server-ip> <your-token>
+```
+
+Expected output:
+
+```
+1. Wrong token refused: yes
+2. MCP session OK: 78 tools listed
+3. ping_unity: Unity 6000.3.26f1 is running. Active scene: ...
+```
+
+If your token is refused, the script says so and shows its length: copy it
+again, all 64 characters.
+
 ---
 
 ## Setup on Machine A (Claude Desktop)
+
+Claude Desktop starts its MCP servers as local commands (stdio); it does not
+take a remote URL and headers in its config file. The `mcp-remote` package
+bridges the two: Claude Desktop runs it locally, and it connects to the remote
+server with the token. It needs Node.js (for `npx`) on Machine A.
 
 Edit `~/Library/Application Support/Claude/claude_desktop_config.json`
 (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows).
 
 Add an entry for each machine you want to reach. You can have as many as you
-like; Claude Desktop lets you choose which one to use per conversation. Each
-entry sends that machine's `UNITY_MCP_SERVER_TOKEN`; a client that cannot send
-headers cannot use the network mode.
+like. Each entry sends that machine's `UNITY_MCP_SERVER_TOKEN`:
 
 ```json
 {
   "mcpServers": {
     "unity-macbook": {
-      "url": "http://192.168.1.101:8000/sse",
-      "headers": { "Authorization": "Bearer <macbook-token>" }
+      "command": "npx",
+      "args": ["mcp-remote", "http://192.168.1.101:8000/mcp", "--allow-http",
+               "--header", "Authorization:${AUTH_HEADER}"],
+      "env": { "AUTH_HEADER": "Bearer <macbook-token>" }
     },
     "unity-desktop": {
-      "url": "http://192.168.1.102:8000/sse",
-      "headers": { "Authorization": "Bearer <desktop-token>" }
-    },
-    "unity-build-machine": {
-      "url": "http://192.168.1.103:8000/sse",
-      "headers": { "Authorization": "Bearer <build-machine-token>" }
+      "command": "npx",
+      "args": ["mcp-remote", "http://192.168.1.102:8000/mcp", "--allow-http",
+               "--header", "Authorization:${AUTH_HEADER}"],
+      "env": { "AUTH_HEADER": "Bearer <desktop-token>" }
     }
   }
 }
 ```
+
+The header is written as `Authorization:${AUTH_HEADER}`, with the
+space-containing `Bearer <token>` value in `env`, because Windows can split
+arguments that contain spaces. `--allow-http` is needed because the server
+speaks plain HTTP on your LAN; the token travels unencrypted, so use this on a
+trusted network only.
 
 Use hostnames if your network has DNS / mDNS set up (e.g. `macbook.local`
-on macOS):
+on macOS) in place of the IP address.
 
-```json
-{
-  "mcpServers": {
-    "unity-macbook": {
-      "url": "http://macbook.local:8000/sse",
-      "headers": { "Authorization": "Bearer <macbook-token>" }
-    }
-  }
-}
-```
-
-Restart Claude Desktop after editing the config. The new server entries appear
-in the MCP server selector within Claude Desktop.
+Restart Claude Desktop after editing the config. The new servers appear in
+Claude Desktop's tool list.
 
 ---
 
@@ -154,12 +175,14 @@ token settings: the server reads the bridge token from `~/.unity-mcp/bridge-toke
   "mcpServers": {
     "unity-local": {
       "command": "uv",
-      "args": ["--directory", "/path/to/UnityMCPServer", "run", "unity-mcp"],
+      "args": ["run", "--project", "<EadonMCP>/server", "unity-mcp"],
       "env": { "UNITY_MCP_PORT": "11000" }
     },
     "unity-desktop": {
-      "url": "http://192.168.1.102:8000/sse",
-      "headers": { "Authorization": "Bearer <desktop-token>" }
+      "command": "npx",
+      "args": ["mcp-remote", "http://192.168.1.102:8000/mcp", "--allow-http",
+               "--header", "Authorization:${AUTH_HEADER}"],
+      "env": { "AUTH_HEADER": "Bearer <desktop-token>" }
     }
   }
 }
@@ -178,7 +201,7 @@ machine's bridge token in `UNITY_MCP_TOKEN`:
   "mcpServers": {
     "unity-on-desktop": {
       "command": "uv",
-      "args": ["--directory", "/path/to/UnityMCPServer", "run", "unity-mcp"],
+      "args": ["run", "--project", "<EadonMCP>/server", "unity-mcp"],
       "env": {
         "UNITY_MCP_URL": "http://192.168.1.102:11000",
         "UNITY_MCP_TOKEN": "<bridge token of 192.168.1.102>"
@@ -216,21 +239,23 @@ runs on Machine C and Unity on Machine B.
 
 **Through Machine B's MCP server.** Start the server on Machine B in network
 mode (see *Setup on each development machine*), then add it to the LLM app's
-MCP config on Machine C as a URL with the `Authorization` header:
+MCP config on Machine C as a URL with the `Authorization` header (check first
+with `remote_check.py` from Machine C). If the app cannot send headers, use the
+`mcp-remote` entry shown for Claude Desktop instead:
 
 ```json
 {
   "mcpServers": {
     "unity-on-b": {
-      "url": "http://192.168.1.102:8000/sse",
+      "url": "http://192.168.1.102:8000/mcp",
       "headers": { "Authorization": "Bearer <Machine B's UNITY_MCP_SERVER_TOKEN>" }
     }
   }
 }
 ```
 
-**Through a local MCP server talking to Machine B's bridge.** Install
-UnityMCPServer on Machine C, tick Allow Remote Connections on Machine B (see
+**Through a local MCP server talking to Machine B's bridge.** Clone EadonMCP
+and run `uv sync` in its `server` folder on Machine C, tick Allow Remote Connections on Machine B (see
 the alternative above), and add a `command` entry on Machine C:
 
 ```json
@@ -238,7 +263,7 @@ the alternative above), and add a `command` entry on Machine C:
   "mcpServers": {
     "unity-on-b": {
       "command": "uv",
-      "args": ["--directory", "/path/to/UnityMCPServer", "run", "unity-mcp"],
+      "args": ["run", "--project", "<EadonMCP>/server", "unity-mcp"],
       "env": {
         "UNITY_MCP_URL": "http://192.168.1.102:11000",
         "UNITY_MCP_TOKEN": "<Machine B's bridge token>"
@@ -258,8 +283,9 @@ the agent settings' **Base URL** to that machine (for example
 ## Troubleshooting
 
 **Connection refused from Claude Desktop**
-- Confirm the MCP server is running in SSE mode (`unity-mcp --transport sse`)
-- Confirm the port matches what's in claude_desktop_config.json
+- Confirm the MCP server is running in network mode (`unity-mcp --transport streamable-http --host 0.0.0.0`)
+- Confirm the URL and port match what's in claude_desktop_config.json (`/mcp` for streamable-http, `/sse` for sse)
+- Run `remote_check.py` from Machine A: it tells a network problem from a token problem
 - Check the firewall on the target machine allows the port
 
 **Tools show as unavailable**
