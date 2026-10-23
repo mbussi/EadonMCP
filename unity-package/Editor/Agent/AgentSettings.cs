@@ -69,7 +69,7 @@ namespace UnityMcpBridge.Editor.Agent
 
         [Header("Behaviour")]
         [Tooltip("Automatically fetch scene context, prefab catalog, and hierarchy " +
-                 "when the window opens and inject them into the system prompt. " +
+                 "when the window opens and attach them, as data, to the first message of each conversation. " +
                  "Costs a few round-trips but gives Claude immediate awareness of your scene.")]
         public bool autoLoadSceneContext = true;
 
@@ -88,6 +88,11 @@ namespace UnityMcpBridge.Editor.Agent
                  "guide with describe_tool when it needs it. About 8,000 tokens per request " +
                  "instead of about 35,000, which matters for local models with a small context.")]
         public bool fullToolDescriptions = false;
+
+        [Min(1)]
+        [Tooltip("The most rounds of tool calls the agent may make for one message before it stops " +
+                 "and waits for you. Reply \"continue\" to let it carry on.")]
+        public int maxToolRounds = 25;
 
         [Header("System Prompt")]
         [TextArea(4, 10)]

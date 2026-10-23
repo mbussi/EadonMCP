@@ -47,6 +47,7 @@ namespace UnityMcpBridge.Editor.Agent
 
         [SerializeField] private List<SavedMessage> savedMessages  = new List<SavedMessage>();
         [SerializeField] private string             savedHistoryJson = "";
+        [SerializeField] private string             savedScenePath   = "";
 
         // -----------------------------------------------------------------------
         // State
@@ -119,6 +120,7 @@ namespace UnityMcpBridge.Editor.Agent
 
                     if (!string.IsNullOrEmpty(savedHistoryJson))
                         loop.RestoreHistoryJson(savedHistoryJson);
+                    loop.ConversationScenePath = savedScenePath;
 
                     SetConnection("Reconnecting…", false);
                     ReconnectAsync();
@@ -173,12 +175,7 @@ namespace UnityMcpBridge.Editor.Agent
             header.Add(settingsPicker);
 
             // Clear button
-            var clearBtn = new Button(() =>
-            {
-                loop?.ClearHistory();
-                messageContainer.Clear();
-                AppendSystemMessage("Conversation cleared.");
-            });
+            var clearBtn = new Button(ClearConversation);
             clearBtn.text                = "↺";
             clearBtn.tooltip             = "Clear conversation";
             clearBtn.style.width         = 24;
@@ -304,7 +301,7 @@ namespace UnityMcpBridge.Editor.Agent
                 if (inner != null) inner.style.whiteSpace = WhiteSpace.Normal;
             });
             
-            sendButton = new Button(OnSendClicked);
+            sendButton = new Button(OnSendOrStopClicked);
             sendButton.text                 = "Send";
             sendButton.style.width          = 54;
             sendButton.style.height         = 34;
@@ -326,6 +323,18 @@ namespace UnityMcpBridge.Editor.Agent
         // Send
         // -----------------------------------------------------------------------
 
+        /// <summary>Send while idle; Stop while a turn runs.</summary>
+        private void OnSendOrStopClicked()
+        {
+            if (isSending)
+            {
+                cts?.Cancel();
+                statusLabel.text = "Stopping… (a tool call already sent finishes first)";
+                return;
+            }
+            OnSendClicked();
+        }
+
         private async void OnSendClicked()
         {
             if (isSending || loop == null || settingsAsset == null) return;
@@ -335,8 +344,9 @@ namespace UnityMcpBridge.Editor.Agent
 
             inputField.value = string.Empty;
             isSending        = true;
-            sendButton.SetEnabled(false);
-            sendButton.style.backgroundColor = AccentDim;
+            sendButton.text  = "Stop";
+            sendButton.tooltip = "Stop this turn. A tool call already sent to Unity finishes first.";
+            sendButton.style.backgroundColor = Red;
 
             AppendUserMessage(text);
             cts = new CancellationTokenSource();
@@ -348,10 +358,12 @@ namespace UnityMcpBridge.Editor.Agent
                     toolMsg => { AppendToolMessage(toolMsg); ScrollToBottom(); },
                     cts.Token);
 
+                if (!string.IsNullOrEmpty(result.Text) || result.Images.Count > 0)
+                    AppendAssistantMessage(result.Text, result.Images);
                 if (result.HasError)
                     AppendErrorMessage(result.Error);
-                else
-                    AppendAssistantMessage(result.Text, result.Images);
+                if (!string.IsNullOrEmpty(result.Notice))
+                    AppendSystemMessage(result.Notice);
             }
             catch (OperationCanceledException)
             {
@@ -364,7 +376,8 @@ namespace UnityMcpBridge.Editor.Agent
             finally
             {
                 isSending   = false;
-                sendButton.SetEnabled(true);
+                sendButton.text    = "Send";
+                sendButton.tooltip = string.Empty;
                 sendButton.style.backgroundColor = Accent;
                 statusLabel.text = string.Empty;
                 ScrollToBottom();
@@ -667,24 +680,58 @@ namespace UnityMcpBridge.Editor.Agent
         {
             // Persist state so it survives domain reloads
             if (loop != null)
+            {
                 savedHistoryJson = loop.GetHistoryJson();
+                savedScenePath   = loop.ConversationScenePath ?? string.Empty;
+            }
             cts?.Cancel();
         }
 
+        /// <summary>
+        /// After a script reload: reconnects, loads the scene context again, and prepares
+        /// the note (or fresh scene data, if the active scene changed) for the next message.
+        /// </summary>
         private async void ReconnectAsync()
         {
             if (loop == null || settingsAsset == null) return;
             try
             {
-                using var http    = new System.Net.Http.HttpClient();
-                using var request = new System.Net.Http.HttpRequestMessage(
-                    System.Net.Http.HttpMethod.Get, settingsAsset.BridgeBaseUrl + "/status");
-                AgentLoop.AddBridgeToken(request);
-                using var response = await http.SendAsync(request);
-                if (response.IsSuccessStatusCode)
-                    SetConnection("✓ Reconnected.", true);
-                else
-                    SetConnection("⚠ Bridge not responding.", false);
+                var status = await loop.PrepareAfterReloadAsync();
+                SetConnection(status.StartsWith("✓") ? "✓ Reconnected." : status, status.StartsWith("✓"));
+            }
+            catch
+            {
+                SetConnection("⚠ Bridge not responding.", false);
+            }
+        }
+
+        /// <summary>
+        /// Starts a new conversation: clears the screen, the conversation and their saved
+        /// copies, and loads the scene context again so the next message carries the
+        /// current scene.
+        /// </summary>
+        private void ClearConversation()
+        {
+            if (isSending)
+            {
+                statusLabel.text = "Stop the current turn before clearing.";
+                return;
+            }
+            loop?.ClearHistory();
+            messageContainer.Clear();
+            savedMessages.Clear();
+            savedHistoryJson = string.Empty;
+            savedScenePath   = string.Empty;
+            AppendSystemMessage("Conversation cleared.");
+            if (loop != null) RefreshSceneContextAsync();
+        }
+
+        private async void RefreshSceneContextAsync()
+        {
+            try
+            {
+                var status = await loop.InitialiseAsync();
+                SetConnection(status, status.StartsWith("✓"));
             }
             catch
             {

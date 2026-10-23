@@ -225,7 +225,7 @@ namespace UnityMcpBridge.Editor.Agent
                 return new AgentResponse
                 {
                     Text       = text,
-                    StopReason = toolUses.Count > 0 ? "tool_use" : "end_turn",
+                    StopReason = NormaliseStopReason(finishReason, toolUses.Count > 0),
                     ToolUses   = toolUses
                 };
             }
@@ -234,6 +234,20 @@ namespace UnityMcpBridge.Editor.Agent
                 return Error($"Failed to parse response: {ex.Message}\n{json}");
             }
         }
+
+        /// <summary>
+        /// Maps an OpenAI-style finish_reason to the loop's. "length" means the reply was
+        /// cut off, so its tool calls (whose arguments may be incomplete) are never run.
+        /// Some local servers report "stop" with tool calls; those count as tool calls.
+        /// </summary>
+        internal static string NormaliseStopReason(string finishReason, bool hasToolCalls) => finishReason switch
+        {
+            "length"                        => "max_tokens",
+            "content_filter"                => "refusal",
+            "tool_calls" or "function_call" => hasToolCalls ? "tool_use" : "end_turn",
+            "stop" or null or ""            => hasToolCalls ? "tool_use" : "end_turn",
+            _                               => hasToolCalls ? "tool_use" : finishReason,
+        };
 
         private static AgentResponse Error(string message) => new()
         {

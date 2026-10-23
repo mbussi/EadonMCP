@@ -150,7 +150,9 @@ namespace UnityMcpBridge.Editor.Agent
                                     }
                                 });
                             }
-                            else if (!string.IsNullOrEmpty(tr.TextContent))
+
+                            // The text too (with an image: its warnings, without the base64).
+                            if (!string.IsNullOrEmpty(tr.TextContent))
                             {
                                 resultContent.Add(new JObject
                                 {
@@ -158,6 +160,9 @@ namespace UnityMcpBridge.Editor.Agent
                                     ["text"] = tr.TextContent
                                 });
                             }
+
+                            if (resultContent.Count == 0)
+                                resultContent.Add(new JObject { ["type"] = "text", ["text"] = "(no output)" });
 
                             content.Add(new JObject
                             {
@@ -207,7 +212,7 @@ namespace UnityMcpBridge.Editor.Agent
                 return new AgentResponse
                 {
                     Text       = text,
-                    StopReason = toolUses.Count > 0 ? "tool_use" : stopReason,
+                    StopReason = NormaliseStopReason(stopReason, toolUses.Count > 0),
                     ToolUses   = toolUses
                 };
             }
@@ -216,6 +221,22 @@ namespace UnityMcpBridge.Editor.Agent
                 return Error($"Failed to parse response: {ex.Message}\n{json}");
             }
         }
+
+        /// <summary>
+        /// Maps Anthropic's stop_reason to the loop's: a reply cut off at max_tokens stays
+        /// "max_tokens" even when it contains a (possibly incomplete) tool call, so the
+        /// call is never run.
+        /// </summary>
+        internal static string NormaliseStopReason(string stopReason, bool hasToolCalls) => stopReason switch
+        {
+            "max_tokens"                    => "max_tokens",
+            "model_context_window_exceeded" => "max_tokens",
+            "tool_use"                      => hasToolCalls ? "tool_use" : "end_turn",
+            "end_turn" or "stop_sequence"   => hasToolCalls ? "tool_use" : "end_turn",
+            "refusal"                       => "refusal",
+            null or ""                      => hasToolCalls ? "tool_use" : "end_turn",
+            _                               => stopReason,
+        };
 
         private static AgentResponse Error(string message) => new()
         {
