@@ -8,7 +8,7 @@ This module is intentionally separate from all other tool modules because
 capture_scene_view is the only tool in the bridge that returns an Image
 rather than a JSON string. Keeping it isolated makes the architectural
 exception visible and prevents its unusual import (Image from
-mcp.server.fastmcp) from being mixed into standard tool modules.
+mcp.server.mcpserver) from being mixed into standard tool modules.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from __future__ import annotations
 import base64
 from typing import Optional
 
-from mcp.server.fastmcp import Image
+from mcp.server.mcpserver import Image
 
 from unity_mcp.unity_client import UnityClient, UnityConnectionError, UnityError
 

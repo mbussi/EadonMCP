@@ -8,7 +8,11 @@ transports must refuse requests without UNITY_MCP_SERVER_TOKEN, and must
 refuse to listen beyond this machine without one.
 """
 
+import socket
 import sys
+import threading
+import time
+from contextlib import contextmanager
 
 import httpx
 import pytest
@@ -17,6 +21,10 @@ from starlette.applications import Starlette
 from starlette.responses import PlainTextResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
+
+import uvicorn
+from mcp import Client
+from mcp.client.streamable_http import create_mcp_http_client, streamable_http_client
 
 from unity_mcp import server
 from unity_mcp.unity_client import UnityClient, UnityError
@@ -181,3 +189,81 @@ def test_network_transport_defaults_to_this_machine_only(monkeypatch):
     monkeypatch.setattr(server, "run_network", lambda *a: calls.append(a))
     server.main()
     assert calls == [("sse", "127.0.0.1", 8000, "")]
+
+
+# ---------------------------------------------------------------------------
+# Network transport — smoke tests against a real server
+# ---------------------------------------------------------------------------
+
+@contextmanager
+def running_server(transport: str, host: str, token: str):
+    """Runs the real sse / streamable-http app on a free local port; yields its base URL."""
+    probe = socket.socket()
+    probe.bind(("127.0.0.1", 0))
+    port = probe.getsockname()[1]
+    probe.close()
+
+    app = server.build_network_app(transport, host, token)
+    instance = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning"))
+    thread = threading.Thread(target=instance.run, daemon=True)
+    thread.start()
+    deadline = time.monotonic() + 10
+    while not instance.started:
+        assert time.monotonic() < deadline, "the server did not start"
+        time.sleep(0.05)
+    try:
+        yield f"http://127.0.0.1:{port}"
+    finally:
+        instance.should_exit = True
+        thread.join(10)
+
+
+async def list_tool_names(url: str, token: str | None) -> set[str]:
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    http = create_mcp_http_client(headers=headers)
+    async with Client(streamable_http_client(url, http_client=http)) as client:
+        return {tool.name for tool in (await client.list_tools()).tools}
+
+
+@pytest.mark.asyncio
+async def test_streamable_http_serves_the_tools_with_the_server_token():
+    with running_server("streamable-http", "127.0.0.1", "server-token") as base:
+        names = await list_tool_names(f"{base}{server.STREAMABLE_HTTP_PATH}", "server-token")
+    assert {"ping_unity", "place_prefab", "get_job_status", "list_unity_tools"} <= names
+
+
+@pytest.mark.asyncio
+async def test_streamable_http_serves_the_tools_without_a_token_on_this_machine():
+    with running_server("streamable-http", "127.0.0.1", "") as base:
+        names = await list_tool_names(f"{base}{server.STREAMABLE_HTTP_PATH}", None)
+    assert "ping_unity" in names
+
+
+def test_streamable_http_refuses_a_wrong_server_token():
+    with running_server("streamable-http", "127.0.0.1", "server-token") as base:
+        response = httpx.post(f"{base}{server.STREAMABLE_HTTP_PATH}", json={},
+                              headers={"Authorization": "Bearer wrong"})
+    assert response.status_code == 401
+
+
+def test_sse_refuses_a_missing_server_token():
+    with running_server("sse", "127.0.0.1", "server-token") as base:
+        response = httpx.get(f"{base}{server.SSE_PATH}")
+    assert response.status_code == 401
+
+
+def test_lan_mode_accepts_a_lan_host_header():
+    # Built for 0.0.0.0, DNS-rebinding protection is off (the token protects this
+    # mode), so a client that addressed the machine by its LAN IP is not refused.
+    with running_server("streamable-http", "0.0.0.0", "server-token") as base:
+        response = httpx.post(f"{base}{server.STREAMABLE_HTTP_PATH}", json={},
+                              headers={"Authorization": "Bearer server-token", "Host": "192.168.1.50:8000"})
+    assert response.status_code != 421
+
+
+def test_local_mode_refuses_a_foreign_host_header():
+    # Bound to this machine only, DNS-rebinding protection stays on.
+    with running_server("streamable-http", "127.0.0.1", "") as base:
+        response = httpx.post(f"{base}{server.STREAMABLE_HTTP_PATH}", json={},
+                              headers={"Host": "evil.example:8000"})
+    assert response.status_code == 421

@@ -6,7 +6,7 @@ import json
 import os
 import sys
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 
 from unity_mcp.unity_client import UnityClient, UnityConnectionError, UnityError
@@ -28,7 +28,7 @@ from unity_mcp.tools.metadata import create_prefab_metadata, update_prefab_metad
 from unity_mcp.tools.debug import capture_scene_view
 from unity_mcp.tools.project_files import write_project_file, read_project_file, list_project_files, refresh_assets
 
-mcp = FastMCP("unity-mcp")
+mcp = MCPServer("unity-mcp")
 
 @mcp.tool()
 async def ping_unity() -> str:
@@ -153,6 +153,8 @@ mcp.tool()(refresh_assets)
 
 SERVER_TOKEN_ENV_VAR = "UNITY_MCP_SERVER_TOKEN"
 LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
+SSE_PATH = "/sse"
+STREAMABLE_HTTP_PATH = "/mcp"
 
 
 class BearerTokenMiddleware:
@@ -199,18 +201,27 @@ def run_network(transport: str, host: str, port: int, token: str) -> None:
     """Run the sse / streamable-http transport, requiring the server token when one is set."""
     import uvicorn
 
-    mcp.settings.host = host
-    mcp.settings.port = port
-    if host not in LOOPBACK_HOSTS:
-        # FastMCP's DNS-rebinding protection only allows localhost Host headers,
-        # which would refuse every LAN client. The bearer token protects this mode.
-        mcp.settings.transport_security = TransportSecuritySettings(enable_dns_rebinding_protection=False)
-
-    app = mcp.sse_app() if transport == "sse" else mcp.streamable_http_app()
-    if token:
-        app = BearerTokenMiddleware(app, token)
-
+    app = build_network_app(transport, host, token)
     uvicorn.Server(uvicorn.Config(app, host=host, port=port, log_level=mcp.settings.log_level.lower())).run()
+
+
+def build_network_app(transport: str, host: str, token: str):
+    """
+    The ASGI app for the sse / streamable-http transport, behind the server token
+    when one is set. Separate from run_network so tests can call it in-process.
+    """
+    security = None
+    if host not in LOOPBACK_HOSTS:
+        # DNS-rebinding protection only allows localhost Host headers, which would
+        # refuse every LAN client. The bearer token protects this mode.
+        security = TransportSecuritySettings(enable_dns_rebinding_protection=False)
+
+    if transport == "sse":
+        app = mcp.sse_app(sse_path=SSE_PATH, transport_security=security, host=host)
+    else:
+        app = mcp.streamable_http_app(streamable_http_path=STREAMABLE_HTTP_PATH,
+                                      transport_security=security, host=host)
+    return BearerTokenMiddleware(app, token) if token else app
 
 
 def main() -> None:
@@ -275,7 +286,7 @@ def main() -> None:
         )
         sys.exit(2)
 
-    endpoint = "/sse" if args.transport == "sse" else mcp.settings.streamable_http_path
+    endpoint = SSE_PATH if args.transport == "sse" else STREAMABLE_HTTP_PATH
     shown_host = "<this-machine-ip>" if args.host not in LOOPBACK_HOSTS else args.host
     print(
         f"[unity-mcp] Starting {args.transport.upper()} server on {args.host}:{args.port}"

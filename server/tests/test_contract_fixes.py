@@ -15,7 +15,7 @@ import httpx
 import pytest
 import respx
 
-from mcp.server.fastmcp import Image
+from mcp.server.mcpserver import Image
 
 from unity_mcp.tools.components import add_component_to_object
 from unity_mcp.tools.debug import capture_scene_view

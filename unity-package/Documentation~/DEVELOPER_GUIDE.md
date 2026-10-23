@@ -35,7 +35,7 @@ The Python side is intentionally thin. All domain logic lives in C#.
 
 ```
 1.  Claude calls the tool with arguments
-2.  FastMCP validates arguments against the JSON schema
+2.  MCPServer (mcp 2.x) validates arguments against the JSON schema
         (generated from Python type hints)
 3.  Python tool function calls UnityClient.instance().post(path, payload)
 4.  httpx sends HTTP POST to http://localhost:11000/tools/...

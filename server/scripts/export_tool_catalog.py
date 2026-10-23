@@ -76,7 +76,7 @@ def build_catalog() -> str:
             "name": tool.name,
             "summary": summary_of(description),
             "description": description,
-            "input_schema": without_titles(tool.inputSchema),
+            "input_schema": without_titles(tool.input_schema),
             "method": method,
             "path": path,
         })

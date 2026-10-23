@@ -88,7 +88,7 @@ The Python server is intentionally thin. It knows nothing about Unity internals;
 ### Technology
 
 - **Language:** Python 3.11+
-- **MCP SDK:** `mcp` (Anthropic's official Python SDK)
+- **MCP SDK:** `mcp` 2.x, the official Python SDK (`MCPServer`), pinned `<3` like every dependency's major version
 - **HTTP client:** `httpx` (async-friendly, clean API)
 - **Testing:** `pytest` + `pytest-asyncio`
 - **Package management:** `uv` (recommended) or `pip` with `pyproject.toml`
@@ -127,59 +127,54 @@ mcp-server/
 
 ### Tool registration pattern
 
+Tools are plain async functions in `tools/*.py`, registered in `server.py` on an `MCPServer` (mcp 2.x). The function's type hints become the tool's argument schema and its docstring becomes the description.
+
 ```python
-# Example: server.py
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
-from unity_mcp.tools.placement import register_placement_tools
+# server.py
+from mcp.server.mcpserver import MCPServer
+from unity_mcp.tools.placement import place_prefab, set_transform
 
-app = Server("unity-mcp")
-register_placement_tools(app)
-# ... register other tool groups
+mcp = MCPServer("unity-mcp")
+mcp.tool()(place_prefab)
+mcp.tool()(set_transform)
+# ... the other tools
 
-async def main():
-    async with stdio_server() as streams:
-        await app.run(*streams)
+def main() -> None:
+    mcp.run(transport="stdio")    # sse / streamable-http: see run_network()
 ```
 
 ```python
-# Example: tools/placement.py
-from mcp.server import Server
-from unity_mcp.unity_client import UnityClient
-from unity_mcp.models import PlacePrefabRequest
+# tools/placement.py
+from unity_mcp.unity_client import UnityClient, UnityConnectionError, UnityError
 
-def register_placement_tools(server: Server):
+async def place_prefab(
+    prefab_path: str,
+    position: list[float],
+    rotation: list[float] | None = None,
+    scale: list[float] | None = None,
+    parent_path: str | None = None,
+    dry_run: bool = False,
+) -> str:
+    """
+    Place a prefab instance in the current scene.
 
-    @server.tool()
-    async def place_prefab(
-        prefab_path: str,
-        position: list[float],
-        rotation: list[float] = [0, 0, 0],
-        scale: list[float] = [1, 1, 1],
-        parent_path: str | None = None,
-        dry_run: bool = False
-    ) -> dict:
-        """
-        Place a prefab instance in the current scene.
-
-        prefab_path: AssetDatabase path, e.g. "Assets/Prefabs/City/Townhouse_A.prefab"
-        position: World-space [x, y, z]
-        rotation: Euler angles in degrees [x, y, z]
-        scale: Local scale [x, y, z]
-        parent_path: Scene hierarchy path of the parent object, if any
-        dry_run: If true, validates and returns the operation without executing it
-        """
-        client = UnityClient.instance()
-        request = PlacePrefabRequest(
-            prefab_path=prefab_path,
-            position=position,
-            rotation=rotation,
-            scale=scale,
-            parent_path=parent_path,
-            dry_run=dry_run
-        )
-        return await client.post("/tools/placement/place_prefab", request)
+    prefab_path: AssetDatabase path, e.g. "Assets/Prefabs/City/Townhouse_A.prefab"
+    position:    World-space [x, y, z]
+    ...
+    """
+    try:
+        data = await UnityClient.instance().post("/tools/placement/place_prefab", {
+            "prefab_path": prefab_path, "position": position, "rotation": rotation,
+            "scale": scale, "parent_path": parent_path, "dry_run": dry_run,
+        })
+        return f"Placed {data.get('display_name')} at {data.get('instance_path')}."
+    except UnityConnectionError as exc:
+        return f"Cannot connect to Unity: {exc}"
+    except UnityError as exc:
+        return f"Unity returned an error: {exc}"
 ```
+
+The network transports (`--transport sse` / `streamable-http`) pass host and DNS-rebinding settings to `sse_app()` / `streamable_http_app()` when the app is built (`build_network_app`), as mcp 2.x requires; `mcp.settings` only holds logging and debug options.
 
 ---
 
