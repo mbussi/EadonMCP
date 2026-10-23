@@ -84,6 +84,13 @@ namespace UnityMcpBridge.Editor.Tests
         [Test]
         public void OtherLoadedScene_IsSearched_AndPrefixed()
         {
+            // Unity cannot add a scene while an untitled scene is unsaved, which is how the
+            // Test Runner usually runs EditMode tests. The cross-scene search is then
+            // checked by hand (manage_scene create, then a path into the new scene).
+            for (int i = 0; i < SceneManager.sceneCount; i++)
+                if (string.IsNullOrEmpty(SceneManager.GetSceneAt(i).path))
+                    Assert.Ignore("Needs every open scene saved: Unity cannot add a scene next to an untitled one.");
+
             var active = SceneManager.GetActiveScene();
             var scene  = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
             SceneManager.SetActiveScene(active);

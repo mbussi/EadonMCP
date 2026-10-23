@@ -230,7 +230,24 @@ namespace UnityMcpBridge.Editor.Tools
 
             // Always alongside the open scenes: NewSceneMode.Single would close every open
             // scene without asking to save it. set_active then makes the new one active.
-            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+            // Unity refuses to add a scene next to an unsaved untitled one.
+            for (int i = 0; i < SceneManager.sceneCount; i++)
+            {
+                var open = SceneManager.GetSceneAt(i);
+                if (string.IsNullOrEmpty(open.path) && open.isDirty)
+                    return McpResponse.Fail("UNTITLED_SCENE_UNSAVED",
+                        "An untitled scene is open with unsaved changes, and Unity cannot add a new scene " +
+                        "next to it. Ask the user to save it (File > Save As) first.");
+            }
+            Scene scene;
+            try
+            {
+                scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+            }
+            catch (System.InvalidOperationException ex)
+            {
+                return McpResponse.Fail("SCENE_NOT_CREATED", $"Unity could not create the scene: {ex.Message}");
+            }
 
             // Save unless explicitly told not to
             bool shouldSave = req.SaveAfterCreate != false;
