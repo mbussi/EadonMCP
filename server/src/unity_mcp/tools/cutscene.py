@@ -35,8 +35,11 @@ async def get_cutscene_templates() -> str:
     The cutscene tools need Cinemachine 3.x (Unity 6 ships with it; 2.x is not
     supported). Without it, templates is empty and message explains why.
 
-    Phase 1 available templates:
-      DialogueCamera — over-shoulder / two-shot for NPC dialogue
+    Templates:
+      DialogueCamera    — over-shoulder / two-shot for NPC dialogue
+      AreaReveal        — camera sweeps a path to reveal a location
+      FocusCut          — quick cut to an object, hold, then back
+      ArrivalFlythrough — path flythrough that keeps facing a fixed point
     """
     try:
         data = await UnityClient.instance().get("/assets/cutscene/templates")
@@ -62,23 +65,20 @@ async def create_cutscene_sequence(
       - A Timeline .playable asset with Cinemachine, Activation, and Signal tracks
       - Signal assets in Assets/Cutscenes/Signals/ (reused across sequences)
 
-    ── TEMPLATE: DialogueCamera ─────────────────────────────────────────────
+    ── TEMPLATES ─────────────────────────────────────────────────────────────
 
-    Creates an over-shoulder / two-shot dialogue camera. Blends from the active
-    follow camera, holds during dialogue, then blends back.
+    DialogueCamera    — over-shoulder / two-shot for NPC dialogue.
+                        Signals: dialogue_start, dialogue_end.
+    AreaReveal        — camera sweeps a path to reveal a location (dungeon
+                        entrance, settlement, boss arena).
+                        Signals: reveal_start, reveal_complete.
+    FocusCut          — quick cut to an object (found item, mechanism, boss),
+                        hold, then blend back. Signal: focus_held.
+    ArrivalFlythrough — path flythrough of a major location that keeps facing
+                        a fixed point. Signals: arrival_start, arrival_complete.
 
-    Required params:
-      player_path (string)  — hierarchy path of the player root, e.g. "/Player"
-      npc_path    (string)  — hierarchy path of the NPC, e.g. "/Village/Merchant_A"
-      duration    (float)   — total sequence length in seconds, e.g. 8.0
-
-    Optional params:
-      camera_side (string)  — "left" | "right" | "front" | "auto" (default "auto")
-                              "auto" places the camera on the side facing the current
-                              Scene view camera at creation time.
-      blend_in    (float)   — seconds to blend in from follow cam (default 0.5)
-      blend_out   (float)   — seconds to blend back to follow cam (default 0.5)
-      look_offset (float[3])— local offset from NPC root to look at (default [0,1.6,0])
+    Each template takes its own params. Call get_cutscene_templates for the
+    parameter names, types, defaults and which are required.
 
     Example:
       template      = "DialogueCamera"
@@ -86,11 +86,7 @@ async def create_cutscene_sequence(
       params        = {
         "player_path": "/Player",
         "npc_path":    "/Village/Merchant_A",
-        "camera_side": "right",
-        "duration":    8.0,
-        "blend_in":    0.5,
-        "blend_out":   0.5,
-        "look_offset": [0, 1.7, 0]
+        "duration":    8.0
       }
 
     ── AFTER CREATION ────────────────────────────────────────────────────────
@@ -105,16 +101,16 @@ async def create_cutscene_sequence(
     2. CinemachineBrain (if cinemachine_brain_found is false):
          Add a CinemachineBrain component to the Main Camera.
 
-    3. Signal receivers (when using dialogue_start / dialogue_end signals):
-         Add a SignalReceiver to the player or dialogue manager.
-         Wire dialogue_start → open dialogue UI
-         Wire dialogue_end   → close dialogue UI, return control
+    3. Signal receivers (when using the template's signals):
+         Add a SignalReceiver to the object that reacts, e.g. for DialogueCamera
+         the dialogue manager: dialogue_start → open dialogue UI,
+         dialogue_end → close dialogue UI, return control.
 
     ── PARAMETERS ───────────────────────────────────────────────────────────
 
     template:      Template name from get_cutscene_templates (e.g. "DialogueCamera")
     sequence_name: Name for the scene container, e.g. "DialogueCamera_MerchantA"
-    params:        Template-specific parameter dict (see each template above)
+    params:        Template-specific parameter dict (see get_cutscene_templates)
     timeline_path: Optional asset path for the .playable file.
                    Defaults to "Assets/Cutscenes/{sequence_name}.playable"
 
