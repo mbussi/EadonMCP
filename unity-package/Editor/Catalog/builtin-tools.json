@@ -1322,7 +1322,7 @@
     {
       "name": "hide_scaffold",
       "summary": "Hide the scaffold gizmos (zones, anchors, markers, radii, labels) in the Scene view.",
-      "description": "Hide the scaffold gizmos (zones, anchors, markers, radii, labels) in the Scene view.\n\nScaffold is drawn as gizmos only, so this changes nothing in the scene: baked\ncontent stays visible, and the Level Scaffold overlay's switches show the same\nstate. It lasts for the editor session. Call show_scaffold to show them again.\n\nReturns: { active: false, zones_affected, message }",
+      "description": "Hide the scaffold gizmos (zones, anchors, markers, radii, labels) in the Scene view.\n\nScaffold is drawn as gizmos only, so this changes nothing in the scene: baked\ncontent stays visible, and the Level Scaffold overlay's switches show the same\nstate. It lasts for the editor session. Call show_scaffold to show them again.\nSelecting a zone, anchor or marker still draws it, so the user can inspect\none item while the rest are hidden.\n\nReturns: { active: false, zones_affected, message }",
       "input_schema": {
         "properties": {},
         "type": "object"

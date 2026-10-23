@@ -359,6 +359,8 @@ async def hide_scaffold() -> str:
     Scaffold is drawn as gizmos only, so this changes nothing in the scene: baked
     content stays visible, and the Level Scaffold overlay's switches show the same
     state. It lasts for the editor session. Call show_scaffold to show them again.
+    Selecting a zone, anchor or marker still draws it, so the user can inspect
+    one item while the rest are hidden.
 
     Returns: { active: false, zones_affected, message }
     """

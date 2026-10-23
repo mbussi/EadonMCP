@@ -365,6 +365,8 @@ The scaffold overlay is a standalone scene view toolbar built using Unity's `Ove
 
 Toggle states are persisted in `SessionState` (survive editor restart, cleared on Unity close).
 
+The toggles hide what each item draws all the time. Selecting a zone, anchor or marker still draws its selection gizmos, so one item can be inspected while the rest are hidden.
+
 **Custom inspector contributions**
 
 - `ScaffoldZoneEditor`: displays `DesignNote` in a large read-only text box at the top of the inspector. Adds a "Refresh Anchors" button that regenerates anchors from current dimensions (with a confirmation dialog — this destroys and recreates all child anchors).
