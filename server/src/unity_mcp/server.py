@@ -17,6 +17,7 @@ from unity_mcp.tools.proposal import propose_changes, execute_proposal, discard_
 from unity_mcp.tools.procedural import place_prefab_batch, scatter_prefabs, place_along_path, fill_grid
 from unity_mcp.tools.components import get_component_catalog, add_component_to_object
 from unity_mcp.tools.catalog import list_unity_tools, call_unity_tool
+from unity_mcp.tools.jobs import get_job_status, cancel_job
 from unity_mcp.tools.scaffold import get_scaffold_zones, get_scaffold_anchors, get_scaffold_markers, create_zone_scaffold, link_zones, create_reference_point, create_gameplay_marker, update_gameplay_marker, hide_scaffold, show_scaffold, resolve_scaffold_markers, execute_bake, create_patrol_route, get_patrol_routes
 from unity_mcp.tools.cutscene import get_cutscene_templates, create_cutscene_sequence, preview_cutscene_sequence, update_cutscene_sequence
 from unity_mcp.tools.objects import find_objects, get_object_properties, set_object_properties, set_object_metadata, reparent_objects, duplicate_objects
@@ -78,6 +79,10 @@ mcp.tool()(add_component_to_object)
 # Tools registered by Unity extensions (e.g. the PCG tools) are reached through these two.
 mcp.tool()(list_unity_tools)
 mcp.tool()(call_unity_tool)
+
+# Jobs: requests still running after ~20 s, and background lighting bakes.
+mcp.tool()(get_job_status)
+mcp.tool()(cancel_job)
 
 mcp.tool()(get_scaffold_zones)
 mcp.tool()(get_scaffold_anchors)

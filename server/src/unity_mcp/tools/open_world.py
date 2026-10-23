@@ -329,7 +329,8 @@ async def bake_lighting(
     bake_reflection_probes: bool = False,
 ) -> str:
     """
-    Trigger Unity's progressive lightmapper or clear baked lighting data.
+    Start a background lighting bake (Unity's progressive lightmapper) and return
+    its job ID at once, or clear baked lighting data.
 
     The lighting equivalent of bake_navmesh. Call at the end of any session
     that makes significant geometry or lighting changes — new buildings, moved
@@ -338,38 +339,35 @@ async def bake_lighting(
     Modes
     -----
     "async" (default)
-        Triggers a bake and returns immediately with started=true. Monitor
-        progress in Window > Rendering > Lighting. This is the correct mode
-        for most sessions — bakes on large scenes take minutes and should not
-        block the conversation.
-
-    "sync"
-        Blocks until the bake is complete and returns elapsed_ms. Use only for
-        small scenes or targeted re-bakes where you need to confirm completion
-        before continuing. Will appear to hang Claude for the bake duration.
+        Starts the bake in the background and returns immediately with a
+        job_id. The editor stays usable while it bakes. Bakes on large scenes
+        take minutes: check progress and the result with
+        get_job_status(job_id), stop the bake with cancel_job(job_id).
 
     "clear"
         Deletes all baked lighting data from the scene without re-baking.
         Useful before a full rework of the lighting setup.
 
+    The old "sync" mode is refused: it froze the editor for the whole bake.
+
     Parameters
     ----------
-    mode                   : "async" | "sync" | "clear" (default "async")
-    bake_reflection_probes : True = also capture reflection probe snapshots
-                             (sync mode: calls BakeAllReflectionProbesSnapshots
-                              after the main bake; async mode: probes configured
-                              for baked mode are captured automatically)
+    mode                   : "async" | "clear" (default "async")
+    bake_reflection_probes : Reflection probes set to Baked are captured by every
+                             bake; True only mentions it in the result message.
 
     Returns
     -------
-    { mode, started, completed?, elapsed_ms?, message }
+    { mode, started, job_id, message }
+    get_job_status(job_id) then reports { state, progress } while baking, and
+    { state: "done", result: { completed, elapsed_ms, message } } at the end.
 
     Example — end-of-session bake
     ------------------------------
     # After a full dressing session:
     bake_navmesh(all=True)    # NavMesh first — fast
     bake_lighting(mode="async", bake_reflection_probes=True)
-    # → both bakes triggered, both monitored in Unity background
+    # → returns job_id; call get_job_status(job_id) later to confirm it finished
     """
     client = UnityClient.instance()
     try:

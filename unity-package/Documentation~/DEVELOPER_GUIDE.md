@@ -53,6 +53,8 @@ The Python side is intentionally thin. All domain logic lives in C#.
 14. Claude receives the string and incorporates it into its response
 ```
 
+If steps 6–10 take longer than 20 s, the listener answers step 11 with a job instead of the result, and `UnityClient` polls the job until it finishes (up to 45 s) before step 12. Handlers need nothing for this; see "Long operations" in §6.
+
 ---
 
 ## 3. Adding a Python tool
@@ -650,6 +652,23 @@ public static Task<McpResponse> BrokenAsync(MyRequest req) =>
         return McpResponse.Ok(null);
     });
 ```
+
+### Long operations
+
+Any request that takes longer than 20 s becomes a job automatically: the caller gets a job ID and the result is kept for `get_job_status`. A handler needs no code for this. Keep in mind:
+
+- **Do not block the main thread on purpose.** A handler that waits for Unity (a bake, a build) freezes the editor and every other request. Start the operation and return.
+- **Background operations** that carry on after the request returns (like `bake_lighting`) create their own job and complete it:
+
+```csharp
+var job = McpJob.StartBackground("my_tool", "POST", "/tools/my/route");
+job.AllowCancelWhileRunning(() => { MyOperation.Stop(); return true; });  // optional
+// … on each editor update: job.SetProgress(progress, "Doing the thing");
+// … when it ends:          job.Complete(McpResponse.Ok(result));
+return McpResponse.Ok(new { job_id = job.Id, message = $"Started as job {job.Id}." });
+```
+
+- **Cancelling** a queued job skips its work: the handler's `EnqueueAsync` task is cancelled. Only offer `AllowCancelWhileRunning` when the operation can stop cleanly.
 
 ### Tool function docstrings
 

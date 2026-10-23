@@ -302,9 +302,14 @@ namespace UnityMcpBridge.Editor.Agent
                     return await BridgePostAsync(path, tu.Input ?? new JObject(), ct);
                 }
             }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
             catch (TaskCanceledException)
             {
-                return Fail("Tool call timed out.");
+                return Fail("Unity did not answer within 30 s (it may be frozen by a long operation or a dialog). " +
+                            "The call may still run: check the scene before repeating it.");
             }
             catch (Exception ex)
             {
@@ -329,7 +334,7 @@ namespace UnityMcpBridge.Editor.Agent
             AddBridgeToken(request);
             using var response = await Http.SendAsync(request, ct);
             var body = await response.Content.ReadAsStringAsync();
-            return ParseBridgeResponse(body);
+            return ParseBridgeResponse(await AwaitJobAsync(body, ct));
         }
 
         private async Task<ToolExecutionResult> BridgePostAsync(
@@ -344,7 +349,77 @@ namespace UnityMcpBridge.Editor.Agent
             AddBridgeToken(request);
             using var response = await Http.SendAsync(request, ct);
             var json = await response.Content.ReadAsStringAsync();
-            return ParseBridgeResponse(json);
+            return ParseBridgeResponse(await AwaitJobAsync(json, ct));
+        }
+
+        /// <summary>
+        /// When the bridge answered "pending" (the request took longer than
+        /// McpHttpListener.HandoffSeconds), waits for the job and returns its final
+        /// response; otherwise returns the response as it is. Cancelling the chat while
+        /// the job is still queued cancels the job.
+        /// </summary>
+        private async Task<string> AwaitJobAsync(string json, CancellationToken ct)
+        {
+            JObject envelope;
+            try   { envelope = JObject.Parse(json); }
+            catch { return json; }
+            if (envelope["pending"]?.Value<bool>() != true) return json;
+
+            var jobId = envelope["data"]?["job_id"]?.Value<string>();
+            var tool  = envelope["data"]?["tool"]?.Value<string>() ?? "the tool";
+            if (string.IsNullOrEmpty(jobId)) return json;
+
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            try
+            {
+                while (true)
+                {
+                    await Task.Delay(1000, ct);
+
+                    using var request = new HttpRequestMessage(HttpMethod.Get,
+                        $"{settings.BridgeBaseUrl}/jobs?job_id={Uri.EscapeDataString(jobId)}");
+                    AddBridgeToken(request);
+                    using var response = await Http.SendAsync(request, ct);
+                    var status = JObject.Parse(await response.Content.ReadAsStringAsync());
+
+                    if (status["success"]?.Value<bool>() != true)
+                        return status.ToString(Formatting.None);      // job lost (script reload)
+
+                    var job   = (JObject)status["data"];
+                    var state = job?["state"]?.Value<string>();
+                    if (job?["result"] is JObject result && state != "queued" && state != "running")
+                        return result.ToString(Formatting.None);
+
+                    SetStatus(state == "queued"
+                        ? $"Waiting for Unity to start {tool}… ({clock.Elapsed.TotalSeconds:0} s)"
+                        : $"Waiting for Unity: {tool} ({clock.Elapsed.TotalSeconds:0} s)");
+                }
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                await CancelJobQuietlyAsync(jobId);
+                throw;
+            }
+        }
+
+        /// <summary>Asks the bridge to cancel a job; ignores the answer (a running job may refuse).</summary>
+        private async Task CancelJobQuietlyAsync(string jobId)
+        {
+            try
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Post, settings.BridgeBaseUrl + "/jobs/cancel")
+                {
+                    Content = new StringContent(new JObject { ["job_id"] = jobId }.ToString(Formatting.None),
+                                                Encoding.UTF8, "application/json")
+                };
+                AddBridgeToken(request);
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                using var _   = await Http.SendAsync(request, cts.Token);
+            }
+            catch
+            {
+                // Best effort: the user cancelled, there is no one to report to.
+            }
         }
 
         /// <summary>Adds the bridge token that McpHttpListener requires on every request.</summary>

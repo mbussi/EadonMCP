@@ -29,6 +29,13 @@ namespace UnityMcpBridge.Editor.Core
     ///     re-queued via UnitySynchronizationContext back to the main
     ///     thread, blocking indefinitely if task.Result is also on the
     ///     main thread.
+    ///
+    /// Jobs
+    /// ----
+    /// Work queued while a request is being handled belongs to that request's
+    /// job (McpJob.Current). The job turns from queued to running when Unity
+    /// starts the work; if the job was cancelled while queued, the work is
+    /// skipped and its task fails with OperationCanceledException.
     /// </summary>
     [InitializeOnLoad]
     public static class MainThreadDispatcher
@@ -61,8 +68,10 @@ namespace UnityMcpBridge.Editor.Core
         public static Task<T> EnqueueAsync<T>(Func<T> work)
         {
             var tcs = new TaskCompletionSource<T>();
+            var job = McpJob.Current;
             _queue.Enqueue(() =>
             {
+                if (job != null && !job.TryStart()) { tcs.SetCanceled(); return; }
                 try   { tcs.SetResult(work()); }
                 catch (Exception ex) { tcs.SetException(ex); }
             });
@@ -76,8 +85,10 @@ namespace UnityMcpBridge.Editor.Core
         public static Task EnqueueAsync(Action work)
         {
             var tcs = new TaskCompletionSource<bool>();
+            var job = McpJob.Current;
             _queue.Enqueue(() =>
             {
+                if (job != null && !job.TryStart()) { tcs.SetCanceled(); return; }
                 try   { work(); tcs.SetResult(true); }
                 catch (Exception ex) { tcs.SetException(ex); }
             });

@@ -25,6 +25,14 @@ namespace UnityMcpBridge.Editor.Core
     /// handed to the thread pool. Handlers that need Unity API access go through
     /// MainThreadDispatcher.EnqueueAsync.
     ///
+    /// Long requests
+    /// -------------
+    /// Every request is followed by an McpJob. A request still unfinished after
+    /// HandoffSeconds is answered with HTTP 202, "pending": true and the job
+    /// (its ID and state); the work carries on and its result is kept in
+    /// McpJobStore for GET /jobs?job_id=…. The listener's threads do not depend
+    /// on the main thread, so this answer comes even while Unity is frozen.
+    ///
     /// Security
     /// --------
     /// • Every request must carry "Authorization: Bearer &lt;token&gt;" (see McpBridgeAuth).
@@ -38,6 +46,9 @@ namespace UnityMcpBridge.Editor.Core
     [InitializeOnLoad]
     public static class McpHttpListener
     {
+        /// <summary>Seconds a request may take before the caller gets a job ID instead of the result.</summary>
+        public const int HandoffSeconds = 20;
+
         private static HttpListener _listener;
         private static Thread       _listenerThread;
         private static volatile bool _running;
@@ -178,7 +189,28 @@ namespace UnityMcpBridge.Editor.Core
 
             try
             {
-                response   = CheckRequest(context.Request) ?? await McpRouter.RouteAsync(context.Request);
+                response = CheckRequest(context.Request);
+                if (response == null)
+                {
+                    var job = CreateJob(context.Request);
+                    McpJob.Current = job;
+                    var routeTask = McpRouter.RouteAsync(context.Request);
+                    McpJob.Current = null;
+
+                    if (await Task.WhenAny(routeTask, Task.Delay(TimeSpan.FromSeconds(HandoffSeconds))) != routeTask)
+                    {
+                        // Too long to wait for: hand the caller the job and keep the result for later.
+                        McpJobStore.Add(job);
+                        _ = routeTask.ContinueWith(t => job.Complete(t.Status == TaskStatus.RanToCompletion
+                            ? t.Result
+                            : McpResponse.Fail("INTERNAL_ERROR", t.Exception?.GetBaseException().Message ?? "The operation failed.")));
+                        await WriteResponseAsync(context, McpResponse.JobPending(job.ToJson(includeResult: false)), 202);
+                        return;
+                    }
+
+                    response = await routeTask;
+                    job.Complete(response);
+                }
                 statusCode = response.Success ? 200 : MapErrorToStatus(response.Error?.Code);
             }
             catch (Exception ex)
@@ -189,6 +221,15 @@ namespace UnityMcpBridge.Editor.Core
             }
 
             await WriteResponseAsync(context, response, statusCode);
+        }
+
+        /// <summary>A job for the request, named after the tool that owns its route when there is one.</summary>
+        private static McpJob CreateJob(HttpListenerRequest request)
+        {
+            var method = request.HttpMethod.ToUpperInvariant();
+            var path   = request.Url?.AbsolutePath?.TrimEnd('/') ?? string.Empty;
+            McpToolCatalog.TryGetByRoute(method, path, out var tool);
+            return new McpJob(method, path, tool?.Name);
         }
 
         /// <summary>

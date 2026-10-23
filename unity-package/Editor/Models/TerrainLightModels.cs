@@ -40,10 +40,10 @@ namespace UnityMcpBridge.Editor.Core
 
     public class BakeLightingRequest
     {
-        /// <summary>"async" (default), "sync" (block until done), or "clear".</summary>
+        /// <summary>"async" (default: start a background bake and return its job) or "clear".</summary>
         [JsonProperty("mode")]                   public string Mode                { get; set; } = "async";
 
-        /// <summary>Trigger a reflection probe capture after baking (sync mode only).</summary>
+        /// <summary>Only changes the message: reflection probes set to Baked are captured by every bake.</summary>
         [JsonProperty("bake_reflection_probes")] public bool   BakeReflectionProbes { get; set; }
     }
 
@@ -53,6 +53,7 @@ namespace UnityMcpBridge.Editor.Core
         [JsonProperty("started")]                                         public bool   Started   { get; set; }
         [JsonProperty("completed", NullValueHandling = NullValueHandling.Ignore)] public bool? Completed  { get; set; }
         [JsonProperty("elapsed_ms",NullValueHandling = NullValueHandling.Ignore)] public long? ElapsedMs  { get; set; }
+        [JsonProperty("job_id",    NullValueHandling = NullValueHandling.Ignore)] public string JobId     { get; set; }
         [JsonProperty("message")]                                         public string Message   { get; set; }
     }
 }

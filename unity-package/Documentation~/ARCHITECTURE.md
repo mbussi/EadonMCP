@@ -330,6 +330,15 @@ All requests are HTTP POST with `Content-Type: application/json`.
 }
 ```
 
+**Still running (HTTP 202):** a request that has not finished after 20 s is handed off as a job (see §9, Long requests and jobs):
+```json
+{
+  "success": true,
+  "pending": true,
+  "data": { "job_id": "job-12-a1b2c3", "tool": "place_prefab_batch", "state": "running" }
+}
+```
+
 ### Route map
 
 | HTTP route | Handler class | Description |
@@ -353,6 +362,8 @@ All requests are HTTP POST with `Content-Type: application/json`.
 | `POST /tools/proposal/execute` | `ProposalHandler` | Execute an approved proposal |
 | `GET /tools/catalog` | `McpToolCatalog` | Every tool the bridge offers (`source=all\|builtin\|extensions`, `detail=summary\|full`) |
 | `GET /tools/describe` | `McpToolCatalog` | One tool's full guide and argument schema (`name=…`) |
+| `GET /jobs` | `McpJobStore` | One job with its result (`job_id=…`), or the recent jobs |
+| `POST /jobs/cancel` | `McpJobStore` | Cancel a queued job, or stop a light bake: `{ "job_id": … }` |
 | `POST /tools/call` | `McpToolRegistry` | Run an extension tool by name: `{ "name": …, "arguments": { … } }` |
 
 Extensions add routes of their own through `McpRouteRegistry`, usually by registering a tool with `McpToolRegistry` (see §6).
@@ -416,6 +427,7 @@ Extension tools work everywhere a built-in tool does: the agent offers them dire
 | `set_ambient_light` | Configure ambient lighting mode (flat colour, gradient, or skybox) and colour values. |
 | `set_skybox` | Assign a skybox material to the scene. |
 | `set_fog` | Enable/disable fog and configure colour, mode, and density. |
+| `bake_lighting` | Start a background lighting bake and return its job ID at once (`get_job_status` follows it, `cancel_job` stops it), or clear baked data. |
 
 ### Proposal and Validation
 
@@ -622,11 +634,25 @@ public class MainThreadDispatcher
 
 The `HttpListener` background thread enqueues work and `await`s the `TaskCompletionSource`. The main thread drains the queue on each `EditorApplication.update` tick. This gives a maximum latency of one editor frame (~16ms at 60fps) for any operation.
 
+### Long requests and jobs
+
+Every request is followed by an `McpJob`, from arrival to result. `McpHttpListener` makes it the current job (`McpJob.Current`, an `AsyncLocal`) while the request is routed, and `MainThreadDispatcher` attaches each queued work item to the current job. The job is **queued** until Unity starts the work, then **running**, then **done**, **failed** or **cancelled**.
+
+If a request has not finished after `McpHttpListener.HandoffSeconds` (20 s), the listener answers HTTP 202 with `"pending": true` and the job, puts the job in `McpJobStore`, and lets the work carry on. The listener's threads do not wait for the main thread, so this answer comes even while Unity is frozen by a long operation, a compile or a dialog.
+
+- **Python server:** `UnityClient` sees the pending answer and polls `GET /jobs?job_id=…` every second. If the job finishes within 45 s, the tool returns the result as if the request had answered directly. Otherwise it raises `UnityJobPending` (code `STILL_RUNNING`), whose message gives the job ID, points to `get_job_status` and warns not to repeat the request.
+- **In-editor agent:** `AgentLoop` polls the job until it finishes, showing "Waiting for Unity…". Cancelling the chat cancels the job if it is still queued.
+- **Cancelling:** a queued job is cancelled at once and its work is skipped. A running job is refused (Unity cannot stop an operation safely halfway) unless it registered a stop with `AllowCancelWhileRunning`, as light bakes do.
+- **Background jobs:** an operation that continues after its request returns creates its own job with `McpJob.StartBackground` and completes it itself. `bake_lighting` does this: it starts `Lightmapping.BakeAsync`, returns the job ID, reports `Lightmapping.buildProgress` on the job, and completes it when the bake finishes, fails or is cancelled.
+- **Retention:** the store keeps the last 50 jobs; when full, the oldest finished job goes first, so a running job is never dropped. It lives in memory, so a script reload clears it.
+
+Every transport failure in the Python client (timeout, dropped connection) becomes a `UnityConnectionError` that says the request may already have run.
+
 ### Domain reload safety
 
 Unity reloads the C# domain on every script recompile. The listener must be torn down cleanly before this happens and restarted after. `AssemblyReloadEvents.beforeAssemblyReload` and `[InitializeOnLoad]` handle this.
 
-Static state (the operation queue, pending proposals) is cleared on domain reload. This is acceptable for an editor tool; any pending proposals should be resolved before recompiling.
+Static state (the operation queue, pending proposals, jobs) is cleared on domain reload. This is acceptable for an editor tool; any pending proposals should be resolved before recompiling. `get_job_status` for a job lost this way answers `JOB_NOT_FOUND` and says the job may or may not have run.
 
 ---
 

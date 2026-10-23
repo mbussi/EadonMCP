@@ -18,8 +18,18 @@ namespace UnityMcpBridge.Editor.Core
         [JsonProperty("error", NullValueHandling = NullValueHandling.Ignore)]
         public McpError Error { get; private set; }
 
+        /// <summary>
+        /// True when the request is still running: Data is then the job (job_id, state),
+        /// to poll with GET /jobs?job_id=…. Sent with HTTP 202.
+        /// </summary>
+        [JsonProperty("pending", DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public bool Pending { get; private set; }
+
         public static McpResponse Ok(object data) =>
             new McpResponse { Success = true, Data = data };
+
+        public static McpResponse JobPending(object job) =>
+            new McpResponse { Success = true, Pending = true, Data = job };
 
         public static McpResponse Fail(string code, string message) =>
             new McpResponse { Success = false, Error = new McpError { Code = code, Message = message } };

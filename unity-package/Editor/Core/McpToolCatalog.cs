@@ -33,7 +33,7 @@ namespace UnityMcpBridge.Editor.Core
             "get_scaffold_anchors", "get_scaffold_markers", "get_patrol_routes", "validate_scene",
             "get_zone_context", "capture_scene_view", "read_project_file", "list_project_files",
             "get_component_catalog", "get_cutscene_templates", "resolve_scaffold_markers",
-            DescribeToolName,
+            "get_job_status", DescribeToolName,
         };
 
         /// <summary>
@@ -83,6 +83,15 @@ namespace UnityMcpBridge.Editor.Core
             EnsureLoaded();
             tool = _builtIns.Find(t => t.Name == name);
             return tool != null || McpToolRegistry.TryGet(name, out tool);
+        }
+
+        /// <summary>Finds the tool that calls a route (method and path). Safe from any thread.</summary>
+        public static bool TryGetByRoute(string method, string path, out McpToolDefinition tool)
+        {
+            EnsureLoaded();
+            tool = _builtIns.Find(t => t.Method == method && t.Path == path)
+                   ?? McpToolRegistry.GetTools().Find(t => t.Method == method && t.Path == path);
+            return tool != null;
         }
 
         /// <summary>

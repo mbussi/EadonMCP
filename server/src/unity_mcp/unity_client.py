@@ -8,6 +8,15 @@ so that tool functions only need to handle two error cases:
   - UnityConnectionError  — Unity is not running or the plugin is not active
   - UnityError            — Unity is running but returned success:false
 
+Long requests
+-------------
+Unity answers within about 20 s. A request still running then comes back as
+"pending" with a job ID; this client polls GET /jobs until the job finishes
+and returns its result as if the request had answered directly. After
+JOB_WAIT_SECONDS it stops waiting and raises UnityJobPending (a UnityError
+with code STILL_RUNNING) that tells the caller to check get_job_status rather
+than repeat the request, which would run it twice.
+
 Connection configuration (in priority order)
 ---------------------------------------------
 1. base_url argument passed to the constructor — used in tests.
@@ -30,7 +39,9 @@ regenerated token is picked up without restarting:
 
 from __future__ import annotations
 
+import asyncio
 import os
+import time
 from pathlib import Path
 from typing import Any
 
@@ -52,6 +63,37 @@ class UnityError(Exception):
         self.code = code
         self.message = message
         super().__init__(f"[{code}] {message}")
+
+
+class UnityJobPending(UnityError):
+    """Raised when Unity is still working on a request after JOB_WAIT_SECONDS."""
+
+    def __init__(self, job_id: str, state: str, seconds: float, tool: str | None = None) -> None:
+        self.job_id = job_id
+        self.state = state
+        what = f"{tool} " if tool else "this request "
+        super().__init__(
+            "STILL_RUNNING",
+            f"Unity is still working on {what}(job {job_id}, {state} after {seconds:.0f} s). "
+            f"Do not repeat the request: it would run twice. Check it with "
+            f'get_job_status("{job_id}"); cancel_job("{job_id}") cancels it while it is still queued.',
+        )
+
+
+# ---------------------------------------------------------------------------
+# Timing
+# ---------------------------------------------------------------------------
+
+# Unity hands a request off as a job after 20 s, so every request answers well
+# within this.
+REQUEST_TIMEOUT = 30.0
+
+# How long a tool call waits for a handed-off job before returning its ID.
+# MCP clients have their own limit per tool call; this stays below a minute.
+JOB_WAIT_SECONDS = 45.0
+
+# How often a handed-off job is polled.
+JOB_POLL_SECONDS = 1.0
 
 
 # ---------------------------------------------------------------------------
@@ -93,7 +135,12 @@ class UnityClient:
         base_url: str | None = None,
         token: str | None = None,
         token_path: Path | None = None,
+        job_wait_seconds: float = JOB_WAIT_SECONDS,
+        job_poll_seconds: float = JOB_POLL_SECONDS,
     ) -> None:
+        # job_wait_seconds / job_poll_seconds are for tests.
+        self.job_wait_seconds = job_wait_seconds
+        self.job_poll_seconds = job_poll_seconds
         # token / token_path are for tests; normally the token comes from
         # UNITY_MCP_TOKEN or the token file (see _token()).
         self._fixed_token = token
@@ -130,12 +177,9 @@ class UnityClient:
 
     async def get(self, path: str) -> dict[str, Any]:
         """GET the given path and return the unwrapped data payload."""
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(f"{self.base_url}{path}", headers=self._auth_headers())
-        except httpx.ConnectError as exc:
-            raise UnityConnectionError(self._connection_hint()) from exc
-        return self._unwrap(response)
+        started = time.monotonic()
+        envelope = await self._send("GET", path)
+        return await self._result(envelope, started)
 
     async def post(self, path: str, body: Any) -> dict[str, Any]:
         """
@@ -144,16 +188,82 @@ class UnityClient:
         `body` may be a Pydantic model (serialised via model_dump) or a plain dict.
         """
         payload = body.model_dump() if hasattr(body, "model_dump") else body
+        started = time.monotonic()
+        envelope = await self._send("POST", path, payload)
+        return await self._result(envelope, started)
+
+    # ------------------------------------------------------------------
+    # Transport
+    # ------------------------------------------------------------------
+
+    async def _send(self, method: str, path: str, payload: Any = None) -> dict[str, Any]:
+        """Send one request and return the parsed envelope. Every transport failure
+        becomes a UnityConnectionError that says whether the request may have run."""
+        url = f"{self.base_url}{path}"
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    f"{self.base_url}{path}",
-                    json=payload,
-                    headers={"Content-Type": "application/json", **self._auth_headers()},
-                )
-        except httpx.ConnectError as exc:
+            async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
+                if method == "GET":
+                    response = await client.get(url, headers=self._auth_headers())
+                else:
+                    response = await client.post(
+                        url,
+                        json=payload,
+                        headers={"Content-Type": "application/json", **self._auth_headers()},
+                    )
+        except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
             raise UnityConnectionError(self._connection_hint()) from exc
-        return self._unwrap(response)
+        except httpx.TimeoutException as exc:
+            raise UnityConnectionError(
+                f"Unity did not answer within {REQUEST_TIMEOUT:.0f} s. It may be frozen by a long "
+                "operation or a dialog. The request may still run: check the scene (or get_job_status) "
+                "before repeating it."
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise UnityConnectionError(
+                f"The connection to Unity was lost ({type(exc).__name__}). Unity may be recompiling "
+                "scripts. The request may have run: check the scene before repeating it."
+            ) from exc
+        return self._envelope(response)
+
+    async def _result(self, envelope: dict[str, Any], started: float) -> dict[str, Any]:
+        """The data of a response; for a pending response, of the job once it finishes."""
+        if not envelope.get("pending"):
+            return self._data(envelope)
+
+        job = envelope.get("data") or {}
+        job_id = job.get("job_id", "")
+        tool = job.get("tool")
+        state = job.get("state", "running")
+        while True:
+            remaining = self.job_wait_seconds - (time.monotonic() - started)
+            if remaining <= 0:
+                raise UnityJobPending(job_id, state, time.monotonic() - started, tool)
+            await asyncio.sleep(min(self.job_poll_seconds, remaining))
+            try:
+                status = self._data(await self._send("GET", f"/jobs?job_id={job_id}"))
+            except UnityConnectionError as exc:
+                raise UnityConnectionError(
+                    f"Unity stopped answering while job {job_id} was {state}: {exc}"
+                ) from exc
+            state = status.get("state", state)
+            if state not in ("queued", "running") and "result" in status:
+                return self._data(status["result"])
+
+    # ------------------------------------------------------------------
+    # Envelope
+    # ------------------------------------------------------------------
+
+    def _envelope(self, response: httpx.Response) -> dict[str, Any]:
+        try:
+            data = response.json()
+        except ValueError:
+            raise UnityError(
+                f"HTTP_{response.status_code}",
+                f"Unity answered with a non-JSON response: {response.text[:200]}",
+            ) from None
+        if not isinstance(data, dict):
+            raise UnityError(f"HTTP_{response.status_code}", "Unity answered with an unexpected response.")
+        return data
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -176,18 +286,11 @@ class UnityClient:
         token = self._token()
         return {"Authorization": f"Bearer {token}"} if token else {}
 
-    def _unwrap(self, response: httpx.Response) -> dict[str, Any]:
+    def _data(self, data: dict[str, Any]) -> dict[str, Any]:
         """
-        Parse the Unity response envelope.
+        Unwrap a Unity response envelope.
         Returns the `data` dict on success; raises UnityError on failure.
         """
-        try:
-            data = response.json()
-        except ValueError:
-            raise UnityError(
-                f"HTTP_{response.status_code}",
-                f"Unity answered with a non-JSON response: {response.text[:200]}",
-            ) from None
         if not data.get("success", False):
             err = data.get("error") or {}
             code = err.get("code", "UNKNOWN")

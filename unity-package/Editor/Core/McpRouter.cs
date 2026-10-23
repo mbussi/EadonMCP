@@ -33,8 +33,19 @@ namespace UnityMcpBridge.Editor.Core
                 if (method == "POST" && path == "/tools/call")
                 {
                     var call = await ParseBodyAsync<Newtonsoft.Json.Linq.JObject>(request);
+                    if (McpJob.Current != null) McpJob.Current.Tool = (string)call["name"];
                     return await McpToolRegistry.CallAsync(
                         (string)call["name"], call["arguments"] as Newtonsoft.Json.Linq.JObject);
+                }
+
+                // Jobs (requests handed off after McpHttpListener.HandoffSeconds, light bakes).
+                // These never touch the main thread, so they answer while Unity is busy.
+                if (method == "GET" && path == "/jobs")
+                    return McpJobStore.GetStatus(request.QueryString["job_id"]);
+                if (method == "POST" && path == "/jobs/cancel")
+                {
+                    var cancel = await ParseBodyAsync<Newtonsoft.Json.Linq.JObject>(request);
+                    return McpJobStore.Cancel((string)cancel["job_id"]);
                 }
 
                 // Scene Query
@@ -263,6 +274,10 @@ namespace UnityMcpBridge.Editor.Core
                     return await extensionHandler(request);
 
                 return McpResponse.Fail("NOT_FOUND", $"No route for {method} {path}");
+            }
+            catch (OperationCanceledException)
+            {
+                return McpResponse.Fail("CANCELLED", "The job was cancelled before Unity started it.");
             }
             catch (Exception ex)
             {

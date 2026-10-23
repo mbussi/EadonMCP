@@ -904,6 +904,47 @@
       "path": "/tools/components/add"
     },
     {
+      "name": "get_job_status",
+      "summary": "Check a job: a request Unity is still working on, or a background lighting bake.",
+      "description": "Check a job: a request Unity is still working on, or a background lighting bake.\n\nUse it when a tool returned STILL_RUNNING with a job ID, or after bake_lighting.\nNever repeat a request that is still running: it would run twice.\n\nWith a job_id: returns the job's state (\"queued\" = waiting for Unity's main\nthread, \"running\", \"done\", \"failed\", \"cancelled\"), progress when the\noperation reports it, and once finished its result (the same success/data\nor error the request would have returned).\nWithout a job_id: lists recent jobs, newest first.\n\nUnity keeps the last 50 jobs; a script reload clears them.\n\njob_id: e.g. \"job-12-a1b2c3\" (optional)",
+      "input_schema": {
+        "properties": {
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "type": "object"
+      },
+      "method": "GET",
+      "path": "/jobs"
+    },
+    {
+      "name": "cancel_job",
+      "summary": "Cancel a job that Unity has not started yet, or stop a background lighting bake.",
+      "description": "Cancel a job that Unity has not started yet, or stop a background lighting bake.\n\nA queued job (waiting for Unity's main thread) is cancelled at once and never\nruns. A job Unity has already started cannot be stopped safely halfway and is\nrefused, except a lighting bake, which Unity stops.\n\njob_id: the job's ID, from get_job_status or a STILL_RUNNING message",
+      "input_schema": {
+        "properties": {
+          "job_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/jobs/cancel"
+    },
+    {
       "name": "get_scaffold_zones",
       "summary": "Returns all ScaffoldZone instances in the active scene.",
       "description": "Returns all ScaffoldZone instances in the active scene.\n\nFor each zone: zone_name, zone_path, zone_type, design_note, dressing_tags,\nanchor_count, marker_count, position, rotation.\n\nCall this after create_zone_scaffold to confirm creation and to get the\nzone_path needed for subsequent calls.",
@@ -3414,8 +3455,8 @@
     },
     {
       "name": "bake_lighting",
-      "summary": "Trigger Unity's progressive lightmapper or clear baked lighting data.",
-      "description": "Trigger Unity's progressive lightmapper or clear baked lighting data.\n\nThe lighting equivalent of bake_navmesh. Call at the end of any session\nthat makes significant geometry or lighting changes — new buildings, moved\nlights, added prop clusters, or changed terrain.\n\nModes\n-----\n\"async\" (default)\n    Triggers a bake and returns immediately with started=true. Monitor\n    progress in Window > Rendering > Lighting. This is the correct mode\n    for most sessions — bakes on large scenes take minutes and should not\n    block the conversation.\n\n\"sync\"\n    Blocks until the bake is complete and returns elapsed_ms. Use only for\n    small scenes or targeted re-bakes where you need to confirm completion\n    before continuing. Will appear to hang Claude for the bake duration.\n\n\"clear\"\n    Deletes all baked lighting data from the scene without re-baking.\n    Useful before a full rework of the lighting setup.\n\nParameters\n----------\nmode                   : \"async\" | \"sync\" | \"clear\" (default \"async\")\nbake_reflection_probes : True = also capture reflection probe snapshots\n                         (sync mode: calls BakeAllReflectionProbesSnapshots\n                          after the main bake; async mode: probes configured\n                          for baked mode are captured automatically)\n\nReturns\n-------\n{ mode, started, completed?, elapsed_ms?, message }\n\nExample — end-of-session bake\n------------------------------\n# After a full dressing session:\nbake_navmesh(all=True)    # NavMesh first — fast\nbake_lighting(mode=\"async\", bake_reflection_probes=True)\n# → both bakes triggered, both monitored in Unity background",
+      "summary": "Start a background lighting bake (Unity's progressive lightmapper) and return\nits job ID at once, or clear baked lighting data.",
+      "description": "Start a background lighting bake (Unity's progressive lightmapper) and return\nits job ID at once, or clear baked lighting data.\n\nThe lighting equivalent of bake_navmesh. Call at the end of any session\nthat makes significant geometry or lighting changes — new buildings, moved\nlights, added prop clusters, or changed terrain.\n\nModes\n-----\n\"async\" (default)\n    Starts the bake in the background and returns immediately with a\n    job_id. The editor stays usable while it bakes. Bakes on large scenes\n    take minutes: check progress and the result with\n    get_job_status(job_id), stop the bake with cancel_job(job_id).\n\n\"clear\"\n    Deletes all baked lighting data from the scene without re-baking.\n    Useful before a full rework of the lighting setup.\n\nThe old \"sync\" mode is refused: it froze the editor for the whole bake.\n\nParameters\n----------\nmode                   : \"async\" | \"clear\" (default \"async\")\nbake_reflection_probes : Reflection probes set to Baked are captured by every\n                         bake; True only mentions it in the result message.\n\nReturns\n-------\n{ mode, started, job_id, message }\nget_job_status(job_id) then reports { state, progress } while baking, and\n{ state: \"done\", result: { completed, elapsed_ms, message } } at the end.\n\nExample — end-of-session bake\n------------------------------\n# After a full dressing session:\nbake_navmesh(all=True)    # NavMesh first — fast\nbake_lighting(mode=\"async\", bake_reflection_probes=True)\n# → returns job_id; call get_job_status(job_id) later to confirm it finished",
       "input_schema": {
         "properties": {
           "mode": {
