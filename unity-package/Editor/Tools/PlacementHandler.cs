@@ -94,7 +94,7 @@ namespace UnityMcpBridge.Editor.Tools
                 if (req.DryRun)
                     return McpResponse.Ok(new TransformResultData
                     {
-                        ObjectPath  = req.ObjectPath,
+                        ObjectPath  = GetPath(go),
                         DisplayName = go.name,
                         Position    = req.Position ?? Vec3(go.transform.position),
                         Rotation    = req.Rotation ?? Vec3(go.transform.eulerAngles),
@@ -110,7 +110,7 @@ namespace UnityMcpBridge.Editor.Tools
 
                 return McpResponse.Ok(new TransformResultData
                 {
-                    ObjectPath  = req.ObjectPath,
+                    ObjectPath  = GetPath(go),
                     DisplayName = go.name,
                     Position    = Vec3(go.transform.position),
                     Rotation    = Vec3(go.transform.eulerAngles),
@@ -134,15 +134,16 @@ namespace UnityMcpBridge.Editor.Tools
                     return McpResponse.Fail("OBJECT_NOT_FOUND", $"No object at path '{req.ObjectPath}'.");
 
                 string name = go.name;
+                string path = GetPath(go);   // before the delete changes the siblings' indexes
 
                 if (req.DryRun)
                     return McpResponse.Ok(new DeleteResultData
-                        { ObjectPath = req.ObjectPath, DisplayName = name, DryRun = true });
+                        { ObjectPath = path, DisplayName = name, DryRun = true });
 
                 Undo.DestroyObjectImmediate(go);
 
                 return McpResponse.Ok(new DeleteResultData
-                    { ObjectPath = req.ObjectPath, DisplayName = name, DryRun = false });
+                    { ObjectPath = path, DisplayName = name, DryRun = false });
             });
 
         // -----------------------------------------------------------------------

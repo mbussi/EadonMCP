@@ -374,7 +374,7 @@ namespace UnityMcpBridge.Editor.Tools
 
                 return McpResponse.Ok(new UpdateMarkerResultData
                 {
-                    MarkerPath    = req.MarkerPath,
+                    MarkerPath    = PlacementHandler.GetPath(go),
                     UpdatedFields = updated.ToArray(),
                 });
             });

@@ -69,7 +69,7 @@ namespace UnityMcpBridge.Editor.Tools
 
                 return McpResponse.Ok(new PreviewSequenceResultData
                 {
-                    ContainerPath = req.ContainerPath,
+                    ContainerPath = PlacementHandler.GetPath(containerGo),
                     Duration      = duration,
                     Message       =
                         $"Playback started ({duration:F1}s). " +
@@ -237,7 +237,7 @@ namespace UnityMcpBridge.Editor.Tools
                 EditorUtility.SetDirty(timeline);
                 EditorUtility.SetDirty(containerGo);
                 AssetDatabase.SaveAssets();
-                EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+                EditorSceneManager.MarkSceneDirty(containerGo.scene);
 
                 director.RebuildGraph();
 
@@ -245,7 +245,7 @@ namespace UnityMcpBridge.Editor.Tools
 
                 return McpResponse.Ok(new UpdateSequenceResultData
                 {
-                    ContainerPath = req.ContainerPath,
+                    ContainerPath = PlacementHandler.GetPath(containerGo),
                     UpdatedFields = updated.ToArray(),
                     Warnings      = warnings.ToArray(),
                 });

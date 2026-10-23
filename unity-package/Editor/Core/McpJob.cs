@@ -44,6 +44,7 @@ namespace UnityMcpBridge.Editor.Core
         private string      _progressMessage;
         private string      _tool;
         private Func<bool>  _cancelRunning;
+        private bool        _undoStepStarted;
 
         public McpJob(string method, string path, string tool = null)
         {
@@ -106,6 +107,21 @@ namespace UnityMcpBridge.Editor.Core
                     _state      = McpJobState.Running;
                     _startedUtc = DateTime.UtcNow;
                 }
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// True the first time only. MainThreadDispatcher calls it when Unity starts this
+        /// job's work, and starts a new undo step when it returns true, so one Ctrl+Z
+        /// undoes one request and not every request since the user's last click.
+        /// </summary>
+        internal bool TryBeginUndoStep()
+        {
+            lock (_gate)
+            {
+                if (_undoStepStarted) return false;
+                _undoStepStarted = true;
                 return true;
             }
         }

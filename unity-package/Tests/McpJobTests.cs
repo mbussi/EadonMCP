@@ -1,5 +1,7 @@
 using System.Threading.Tasks;
 using NUnit.Framework;
+using UnityEditor;
+using UnityEngine;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityMcpBridge.Editor.Core;
@@ -135,6 +137,64 @@ namespace UnityMcpBridge.Editor.Tests
             job.Complete(McpResponse.Ok(null));
 
             Assert.AreEqual(McpJobState.Cancelled, job.State);
+        }
+
+        // -----------------------------------------------------------------------
+        // Undo steps
+        // -----------------------------------------------------------------------
+
+        private static McpResponse CreateUndoable(string name, System.Action<GameObject> keep)
+        {
+            var go = new GameObject(name);
+            Undo.RegisterCreatedObjectUndo(go, "MCP Test Create " + name);
+            keep(go);
+            return McpResponse.Ok(null);
+        }
+
+        [Test]
+        public void EachJob_IsItsOwnUndoStep()
+        {
+            GameObject a = null, b = null;
+            try
+            {
+                Undo.IncrementCurrentGroup();
+                EnqueueFor(new McpJob("POST", "/test/a"), () => CreateUndoable("McpUndoTest_A", g => a = g));
+                EnqueueFor(new McpJob("POST", "/test/b"), () => CreateUndoable("McpUndoTest_B", g => b = g));
+                MainThreadDispatcher.Tick();
+
+                Undo.PerformUndo();
+
+                Assert.IsTrue(b == null, "One undo should remove the second request's object.");
+                Assert.IsTrue(a != null, "One undo should leave the first request's object.");
+            }
+            finally
+            {
+                if (a != null) Object.DestroyImmediate(a);
+                if (b != null) Object.DestroyImmediate(b);
+            }
+        }
+
+        [Test]
+        public void OneJob_WithTwoPiecesOfWork_IsOneUndoStep()
+        {
+            GameObject a = null, b = null;
+            try
+            {
+                Undo.IncrementCurrentGroup();
+                var job = new McpJob("POST", "/test/ab");
+                EnqueueFor(job, () => CreateUndoable("McpUndoTest_A", g => a = g));
+                EnqueueFor(job, () => CreateUndoable("McpUndoTest_B", g => b = g));
+                MainThreadDispatcher.Tick();
+
+                Undo.PerformUndo();
+
+                Assert.IsTrue(a == null && b == null, "One undo should remove everything the request made.");
+            }
+            finally
+            {
+                if (a != null) Object.DestroyImmediate(a);
+                if (b != null) Object.DestroyImmediate(b);
+            }
         }
 
         // -----------------------------------------------------------------------

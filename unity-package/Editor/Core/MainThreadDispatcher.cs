@@ -36,6 +36,12 @@ namespace UnityMcpBridge.Editor.Core
     /// job (McpJob.Current). The job turns from queued to running when Unity
     /// starts the work; if the job was cancelled while queued, the work is
     /// skipped and its task fails with OperationCanceledException.
+    ///
+    /// Undo
+    /// ----
+    /// Unity starts a new undo step on user input only, so requests that arrive
+    /// between two clicks would all land in one step. When a job's work first
+    /// runs, a new undo step is started: one Ctrl+Z undoes one request.
     /// </summary>
     [InitializeOnLoad]
     public static class MainThreadDispatcher
@@ -62,6 +68,18 @@ namespace UnityMcpBridge.Editor.Core
         }
 
         /// <summary>
+        /// Marks the job as running and, the first time, starts its undo step.
+        /// False when the job was cancelled while queued.
+        /// </summary>
+        private static bool Begin(McpJob job)
+        {
+            if (job == null) return true;
+            if (!job.TryStart()) return false;
+            if (job.TryBeginUndoStep()) Undo.IncrementCurrentGroup();
+            return true;
+        }
+
+        /// <summary>
         /// Enqueues a function to run on the main thread and returns a Task
         /// that resolves to its return value.
         /// </summary>
@@ -71,7 +89,7 @@ namespace UnityMcpBridge.Editor.Core
             var job = McpJob.Current;
             _queue.Enqueue(() =>
             {
-                if (job != null && !job.TryStart()) { tcs.SetCanceled(); return; }
+                if (!Begin(job)) { tcs.SetCanceled(); return; }
                 try   { tcs.SetResult(work()); }
                 catch (Exception ex) { tcs.SetException(ex); }
             });
@@ -88,7 +106,7 @@ namespace UnityMcpBridge.Editor.Core
             var job = McpJob.Current;
             _queue.Enqueue(() =>
             {
-                if (job != null && !job.TryStart()) { tcs.SetCanceled(); return; }
+                if (!Begin(job)) { tcs.SetCanceled(); return; }
                 try   { work(); tcs.SetResult(true); }
                 catch (Exception ex) { tcs.SetException(ex); }
             });

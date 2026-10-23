@@ -239,6 +239,7 @@ namespace UnityMcpBridge.Editor.Tools
                         "An untitled scene is open with unsaved changes, and Unity cannot add a new scene " +
                         "next to it. Ask the user to save it (File > Save As) first.");
             }
+            var previousActive = SceneManager.GetActiveScene();
             Scene scene;
             try
             {
@@ -248,6 +249,11 @@ namespace UnityMcpBridge.Editor.Tools
             {
                 return McpResponse.Fail("SCENE_NOT_CREATED", $"Unity could not create the scene: {ex.Message}");
             }
+
+            // Unity makes the new scene active. Unless set_active asks for that, the
+            // scene that was active before stays active.
+            if (req.SetActive != true && previousActive.IsValid() && previousActive.isLoaded)
+                SceneManager.SetActiveScene(previousActive);
 
             // Save unless explicitly told not to
             bool shouldSave = req.SaveAfterCreate != false;

@@ -50,7 +50,7 @@ namespace UnityMcpBridge.Editor.Tools
 
                 var response = new AddComponentResponse
                 {
-                    objectPath        = req.objectPath,
+                    objectPath        = PlacementHandler.GetPath(go),
                     componentTypeName = req.componentTypeName,
                 };
 

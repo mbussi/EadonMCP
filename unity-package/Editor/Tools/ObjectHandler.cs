@@ -204,7 +204,7 @@ namespace UnityMcpBridge.Editor.Tools
 
                 return McpResponse.Ok(new GetObjectPropertiesResultData
                 {
-                    ObjectPath    = req.ObjectPath,
+                    ObjectPath    = PlacementHandler.GetPath(go),
                     ComponentType = req.ComponentType,
                     Properties    = properties.ToArray(),
                 });
@@ -280,7 +280,7 @@ namespace UnityMcpBridge.Editor.Tools
 
                 return McpResponse.Ok(new SetObjectPropertiesResultData
                 {
-                    ObjectPath        = req.ObjectPath,
+                    ObjectPath        = PlacementHandler.GetPath(go),
                     ComponentType     = req.ComponentType,
                     AppliedProperties = applied.ToArray(),
                     FailedProperties  = failed.ToArray(),
