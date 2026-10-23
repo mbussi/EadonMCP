@@ -83,6 +83,12 @@ namespace UnityMcpBridge.Editor.Agent
                  "executing bakes.")]
         public bool confirmAllSceneChanges = false;
 
+        [Tooltip("Send every tool's full usage guide with each request.\n\n" +
+                 "Off: each tool is sent with a short summary, and the agent reads a tool's full " +
+                 "guide with describe_tool when it needs it. About 8,000 tokens per request " +
+                 "instead of about 35,000, which matters for local models with a small context.")]
+        public bool fullToolDescriptions = false;
+
         [Header("System Prompt")]
         [TextArea(4, 10)]
         [Tooltip("System prompt sent with every request. " +

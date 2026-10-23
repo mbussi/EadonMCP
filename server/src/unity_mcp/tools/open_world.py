@@ -195,7 +195,8 @@ async def manage_scene(
     save_after_create: Optional[bool]      = None,
 ) -> str:
     """
-    Perform editor-level multi-scene operations.
+    Multi-scene operations in the editor: list, load (additively), unload or
+    create scenes, and move objects from one loaded scene to another.
 
     Operations
     ----------

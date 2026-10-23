@@ -220,6 +220,10 @@ namespace UnityMcpBridge.Editor.Core
     {
         [JsonProperty("node_guid")] public string             nodeGuid;
         [JsonProperty("prefabs")]   public List<PcgPrefabEntry> prefabs = new List<PcgPrefabEntry>();
+
+        /// <summary>Older docs said "nodeGuid"; accept it so agents using that spelling still work.</summary>
+        [JsonProperty("nodeGuid")]
+        private string NodeGuidCamelCase { set { if (string.IsNullOrEmpty(nodeGuid)) nodeGuid = value; } }
     }
 
     [Serializable]
@@ -227,6 +231,10 @@ namespace UnityMcpBridge.Editor.Core
     {
         [JsonProperty("asset_guid")] public string assetGuid;
         [JsonProperty("weight")]     public float  weight = 1.0f;
+
+        /// <summary>Older docs said "assetGuid"; accept it so agents using that spelling still work.</summary>
+        [JsonProperty("assetGuid")]
+        private string AssetGuidCamelCase { set { if (string.IsNullOrEmpty(assetGuid)) assetGuid = value; } }
     }
 
     [Serializable]

@@ -351,10 +351,34 @@ All requests are HTTP POST with `Content-Type: application/json`.
 | `POST /tools/lighting/set_fog` | `LightingHandler` | Configure fog settings |
 | `POST /tools/proposal/submit` | `ProposalHandler` | Push a proposal to the queue window |
 | `POST /tools/proposal/execute` | `ProposalHandler` | Execute an approved proposal |
+| `GET /tools/catalog` | `McpToolCatalog` | Every tool the bridge offers (`source=all\|builtin\|extensions`, `detail=summary\|full`) |
+| `GET /tools/describe` | `McpToolCatalog` | One tool's full guide and argument schema (`name=…`) |
+| `POST /tools/call` | `McpToolRegistry` | Run an extension tool by name: `{ "name": …, "arguments": { … } }` |
+
+Extensions add routes of their own through `McpRouteRegistry`, usually by registering a tool with `McpToolRegistry` (see §6).
 
 ---
 
 ## 6. MCP Tool Catalog
+
+### Summaries, full guides and extension tools
+
+Every tool has two descriptions: a **summary** (the first paragraph of its docstring) and a **full guide** (the whole docstring, with examples and option lists). The summary has to be enough to pick the tool; the guide is there when the details matter.
+
+- **Built-in tools** are described once, in the Python server. `server/scripts/export_tool_catalog.py` exports their docstrings and argument schemas to `Editor/Catalog/builtin-tools.json` in the package, and `check_contract.py` fails when that file is out of date.
+- **Extension tools** are registered inside Unity with `McpToolRegistry` (name, summary, guide, schema, route, handler). The PCG tools in `extensions/pcg/` are the reference.
+- `McpToolCatalog` merges both and serves them on `GET /tools/catalog` and `GET /tools/describe`.
+
+Who sees what:
+
+| Client | Tool list | Full guide |
+|---|---|---|
+| MCP clients (Claude Desktop, Claude Code) | Built-in tools with their full docstrings, plus `list_unity_tools` and `call_unity_tool` | `list_unity_tools(name)` for extension tools |
+| In-editor agent | Every tool, built-in and extension, as a summary ending in "Full guide with examples: describe_tool(\"name\")" | `describe_tool(name)` |
+
+The agent's **Full Tool Descriptions** setting sends the full guides instead of the summaries (about 35k tokens per request instead of 8k).
+
+Extension tools work everywhere a built-in tool does: the agent offers them directly, MCP clients reach them through `call_unity_tool`, and `propose_changes` operations can name them. The agent and `call_unity_tool` send arguments exactly as the schema names them, so the request types read those names.
 
 ### Scene Inspection (read-only)
 

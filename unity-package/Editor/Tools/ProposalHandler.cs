@@ -165,6 +165,13 @@ namespace UnityMcpBridge.Editor.Tools
         // Operation routing
         // -----------------------------------------------------------------------
 
+        private static async Task<McpResponse> RunExtensionToolAsync(ProposalOperationItem op)
+        {
+            if (McpToolRegistry.TryGet(op.Tool, out var tool))
+                return await tool.Handler(op.Params);
+            return McpResponse.Fail("UNKNOWN_TOOL", $"No handler registered for tool '{op.Tool}'.");
+        }
+
         private static async Task<(bool success, string error)> ExecuteOperationAsync(
             ProposalOperationItem op)
         {
@@ -195,7 +202,8 @@ namespace UnityMcpBridge.Editor.Tools
                     "set_fog"           => await LightingHandler.SetFogAsync(
                                               DeserialiseAs<SetFogRequest>(op.Params, dryRun: false)),
 
-                    _ => McpResponse.Fail("UNKNOWN_TOOL", $"No handler registered for tool '{op.Tool}'.")
+                    // Tools registered by extensions (McpToolRegistry)
+                    _ => await RunExtensionToolAsync(op)
                 };
 
                 return (response.Success, response.Error?.Message);

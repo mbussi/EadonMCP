@@ -61,6 +61,10 @@ namespace UnityMcpBridge.Editor.Core
     {
         [JsonProperty("property_path")] public string                       propertyPath;
         [JsonProperty("value")]         public Newtonsoft.Json.Linq.JToken  value;
+
+        /// <summary>Older docs said "propertyPath"; accept it so agents using that spelling still work.</summary>
+        [JsonProperty("propertyPath")]
+        private string PropertyPathCamelCase { set { if (string.IsNullOrEmpty(propertyPath)) propertyPath = value; } }
     }
 
     [Serializable]

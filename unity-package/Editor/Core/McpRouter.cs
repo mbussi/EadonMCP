@@ -25,6 +25,18 @@ namespace UnityMcpBridge.Editor.Core
                 if (method == "GET" && path == "/status")
                     return await GetStatusAsync();
 
+                // Tool catalog (built-in and extension tools)
+                if (method == "GET" && path == "/tools/catalog")
+                    return McpToolCatalog.GetCatalog(request.QueryString["source"], request.QueryString["detail"]);
+                if (method == "GET" && path == "/tools/describe")
+                    return McpToolCatalog.Describe(request.QueryString["name"]);
+                if (method == "POST" && path == "/tools/call")
+                {
+                    var call = await ParseBodyAsync<Newtonsoft.Json.Linq.JObject>(request);
+                    return await McpToolRegistry.CallAsync(
+                        (string)call["name"], call["arguments"] as Newtonsoft.Json.Linq.JObject);
+                }
+
                 // Scene Query
                 if (method == "GET" && path == "/scene/hierarchy")
                     return await SceneQueryHandler.GetSceneHierarchyAsync(

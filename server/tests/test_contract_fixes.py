@@ -3,7 +3,8 @@ Tests for the Python-to-Unity key fixes.
 
 Unity's request types read snake_case JSON names. These tests pin the keys
 each fixed tool sends, and check that the older camelCase spelling of nested
-items (propertyPath, nodeGuid, assetGuid) is still accepted.
+items (propertyPath) is still accepted. The PCG tools now live in the PCG
+extension and accept both spellings on the Unity side.
 """
 
 import base64
@@ -20,7 +21,6 @@ from unity_mcp.tools.components import add_component_to_object
 from unity_mcp.tools.debug import capture_scene_view
 from unity_mcp.tools.dressing import create_trigger_volume
 from unity_mcp.tools.objects import set_object_properties
-from unity_mcp.tools.pcg import create_pcg_graph, search_prefabs_for_pcg, validate_pcg_graph
 from unity_mcp.tools.scene import get_zone_context
 from unity_mcp.unity_client import UnityClient
 
@@ -92,50 +92,6 @@ async def test_trigger_volume_script_properties_accept_old_spelling():
                                     script_properties=[{"propertyPath": "dialogueId", "value": "x"}])
 
     assert seen["body"]["script_properties"] == [{"property_path": "dialogueId", "value": "x"}]
-
-
-# ---------------------------------------------------------------------------
-# PCG
-# ---------------------------------------------------------------------------
-
-@pytest.mark.asyncio
-async def test_validate_pcg_graph_sends_pcgg_json():
-    seen = {}
-    with respx.mock:
-        respx.post(f"{BASE_URL}/tools/pcg/validate-graph").mock(side_effect=capture(seen))
-        await validate_pcg_graph('{"version": 1}')
-
-    assert seen["body"] == {"pcgg_json": '{"version": 1}'}
-
-
-@pytest.mark.asyncio
-async def test_create_pcg_graph_sends_snake_case_and_normalises_bindings():
-    seen = {}
-    with respx.mock:
-        respx.post(f"{BASE_URL}/tools/pcg/create-graph").mock(side_effect=capture(seen))
-        await create_pcg_graph(
-            '{"version": 1}',
-            [{"nodeGuid": "n1", "prefabs": [{"assetGuid": "g1", "weight": 1.0},
-                                             {"asset_guid": "g2", "weight": 2.0}]}],
-            "Assets/PCGGraphs/Forest.asset",
-        )
-
-    assert seen["body"] == {
-        "pcgg_json": '{"version": 1}',
-        "prefab_bindings": [{"node_guid": "n1", "prefabs": [{"asset_guid": "g1", "weight": 1.0},
-                                                            {"asset_guid": "g2", "weight": 2.0}]}],
-        "asset_path": "Assets/PCGGraphs/Forest.asset",
-    }
-
-
-@pytest.mark.asyncio
-async def test_search_prefabs_sends_max_results():
-    seen = {}
-    with respx.mock:
-        respx.post(f"{BASE_URL}/tools/pcg/search-prefabs").mock(side_effect=capture(seen))
-        await search_prefabs_for_pcg(["fence"], max_results=5)
-
-    assert seen["body"] == {"tags": ["fence"], "category": "", "max_results": 5}
 
 
 # ---------------------------------------------------------------------------

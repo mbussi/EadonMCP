@@ -164,6 +164,7 @@ async def list_project_files(
 async def refresh_assets() -> str:
     """
     Refresh the Unity AssetDatabase and trigger recompilation of any changed scripts.
+    Call it last: the recompile reloads Unity's scripts and can end the conversation.
 
     Call this AFTER writing all files and AFTER composing the final response text —
     not in the middle of a tool-call sequence. This avoids a domain reload killing

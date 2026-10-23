@@ -572,7 +572,9 @@ async def dress_area(
     group_name: str | None = None,
 ) -> str:
     """
-    Intent-driven area dressing — the flagship tool of this group.
+    Fill a circular area with prefabs chosen to match a plain-language intent
+    (e.g. "medieval market stall with crates and barrels"), submitted as a
+    proposal for review: nothing is placed until execute_proposal.
 
     Given a world-space centre, a radius, and a natural-language description
     of what you want in the area, dress_area:

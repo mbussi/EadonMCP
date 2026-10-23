@@ -1,0 +1,3789 @@
+{
+  "generated_by": "server/scripts/export_tool_catalog.py — do not edit by hand",
+  "tools": [
+    {
+      "name": "ping_unity",
+      "summary": "Verify the connection to the Unity Editor and return basic scene information.",
+      "description": "Verify the connection to the Unity Editor and return basic scene information.",
+      "input_schema": {
+        "properties": {},
+        "type": "object"
+      },
+      "method": "GET",
+      "path": "/status"
+    },
+    {
+      "name": "get_scene_hierarchy",
+      "summary": "Return the full object tree of the active scene.",
+      "description": "Return the full object tree of the active scene.\n\nEach node includes the object's name, full hierarchy path, world-space\nposition/rotation and local scale, active state, and component type names.\nChildren are nested under their parents.\n\nCall this before any placement operation to understand what already exists\nin the scene and to obtain valid parent_path values for new objects.\n\nmax_depth: How many levels of children to include. -1 means no limit.\n           Use 1 or 2 for a quick structural overview of large scenes.",
+      "input_schema": {
+        "properties": {
+          "max_depth": {
+            "default": -1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "method": "GET",
+      "path": "/scene/hierarchy"
+    },
+    {
+      "name": "get_scene_context",
+      "summary": "Return the active SceneContext metadata for the current level.",
+      "description": "Return the active SceneContext metadata for the current level.\n\nSceneContext is a ScriptableObject authored by the designer that describes\nthe level's setting (city, dungeon, forest...), architectural style, era,\npreferred asset tags, and tags to avoid. It also carries freeform design\nnotes intended to guide AI decisions.\n\nRead this before selecting prefabs so that all choices are consistent with\nthe level's design intent. If no SceneContext has been configured, the\nresponse explains how to create one.",
+      "input_schema": {
+        "properties": {},
+        "type": "object"
+      },
+      "method": "GET",
+      "path": "/scene/context"
+    },
+    {
+      "name": "get_prefab_catalog",
+      "summary": "Return all prefabs found under search_path, enriched with PrefabMetadata\nwhere available.",
+      "description": "Return all prefabs found under search_path, enriched with PrefabMetadata\nwhere available.\n\nEach entry with metadata includes: asset path, display name, category,\ntags, plain-English description, compatible and incompatible tags, and\nplacement rules (spacing, surface alignment, indoor/outdoor constraints).\nPrefabs without metadata are also listed with their path and name only.\n\nUse this alongside get_scene_context to identify the most appropriate\nprefabs before calling any placement tool.\n\nsearch_path: AssetDatabase folder to search. Defaults to all of Assets.\n             Narrow it to speed up large projects, e.g. \"Assets/Prefabs/City\".",
+      "input_schema": {
+        "properties": {
+          "search_path": {
+            "default": "Assets",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "method": "GET",
+      "path": "/assets/prefabs"
+    },
+    {
+      "name": "place_prefab",
+      "summary": "Place a prefab instance in the current scene.",
+      "description": "Place a prefab instance in the current scene.\n\nprefab_path: AssetDatabase path, e.g. \"Assets/Prefabs/City/Townhouse_A.prefab\".\n             Use get_prefab_catalog to discover valid paths.\nposition:    World-space position [x, y, z].\nrotation:    Euler angles in degrees [x, y, z]. Defaults to [0, 0, 0].\nscale:       Local scale [x, y, z]. Defaults to [1, 1, 1].\nparent_path: Scene hierarchy path of the parent object, e.g. \"Environment/Buildings\".\n             Use get_scene_hierarchy to discover valid paths. Leave empty for root.\ndry_run:     If true, validates and returns the expected result without modifying the scene.",
+      "input_schema": {
+        "properties": {
+          "prefab_path": {
+            "type": "string"
+          },
+          "position": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "rotation": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "scale": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "parent_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "dry_run": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "prefab_path",
+          "position"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/placement/place_prefab"
+    },
+    {
+      "name": "set_transform",
+      "summary": "Set the world-space transform of an existing scene object.",
+      "description": "Set the world-space transform of an existing scene object.\n\nobject_path: Scene hierarchy path, e.g. \"Environment/Buildings/Townhouse_A\".\n             Use get_scene_hierarchy to discover valid paths.\nposition:    New world-space position [x, y, z]. Omit to leave unchanged.\nrotation:    New Euler angles in degrees [x, y, z]. Omit to leave unchanged.\nscale:       New local scale [x, y, z]. Omit to leave unchanged.\ndry_run:     If true, returns the resulting transform without applying it.",
+      "input_schema": {
+        "properties": {
+          "object_path": {
+            "type": "string"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "rotation": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "scale": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "dry_run": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "object_path"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/placement/set_transform"
+    },
+    {
+      "name": "delete_object",
+      "summary": "Delete a scene object and all its children.",
+      "description": "Delete a scene object and all its children.\n\nobject_path: Scene hierarchy path of the object to delete, e.g. \"Environment/TempMarker\".\n             Use get_scene_hierarchy to discover valid paths.\ndry_run:     If true, confirms the object exists without deleting it.",
+      "input_schema": {
+        "properties": {
+          "object_path": {
+            "type": "string"
+          },
+          "dry_run": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "object_path"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/placement/delete_object"
+    },
+    {
+      "name": "create_empty",
+      "summary": "Create an empty GameObject in the scene.",
+      "description": "Create an empty GameObject in the scene.\n\nUseful for creating organisational containers (e.g. \"Environment\", \"Lighting\")\nbefore placing child objects inside them.\n\nname:        Name of the new GameObject.\nposition:    World-space position [x, y, z]. Defaults to [0, 0, 0].\nparent_path: Scene hierarchy path of the parent object. Leave empty for root.\ndry_run:     If true, validates and returns the expected result without creating anything.",
+      "input_schema": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "parent_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "dry_run": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/placement/create_empty"
+    },
+    {
+      "name": "create_light",
+      "summary": "Create a light source in the scene.",
+      "description": "Create a light source in the scene.\n\nlight_type:  \"Point\", \"Spot\", or \"Directional\".\n             Area lights are not supported as they require baked lighting.\nposition:    World-space position [x, y, z].\nrotation:    Euler angles in degrees [x, y, z]. For directional and spot\n             lights, rotation controls the direction of the light.\ncolor:       Light colour as linear RGB [r, g, b], values 0.0–1.0.\n             Defaults to white [1, 1, 1].\nintensity:   Light intensity. Defaults to 1.0.\nrange:       Radius of influence in metres (Point and Spot only). Defaults to 10.0.\nspot_angle:  Cone angle in degrees (Spot only). Defaults to 30.0.\nshadows:     Shadow mode: \"None\", \"Hard\", or \"Soft\". Defaults to \"Soft\".\nname:        Name of the new GameObject. Defaults to \"<Type> Light\".\nparent_path: Scene hierarchy path of the parent object.\ndry_run:     If true, validates and returns the expected result without creating anything.",
+      "input_schema": {
+        "properties": {
+          "light_type": {
+            "type": "string"
+          },
+          "position": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "rotation": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "color": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "intensity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "range": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "spot_angle": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "shadows": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "parent_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "dry_run": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "light_type",
+          "position"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/lighting/create_light"
+    },
+    {
+      "name": "set_ambient_light",
+      "summary": "Configure the scene's ambient lighting.",
+      "description": "Configure the scene's ambient lighting.\n\nmode:          Ambient light mode:\n                 \"Flat\"     — single flat colour (use `color`).\n                 \"Trilight\" — sky/equator/ground gradient\n                              (use `sky_color`, `equator_color`, `ground_color`).\n                 \"Skybox\"   — driven by the active skybox (no colour input needed).\ncolor:         Flat ambient colour, linear RGB [r, g, b]. Used in Flat mode.\nsky_color:     Sky colour for Trilight mode.\nequator_color: Equator colour for Trilight mode.\nground_color:  Ground colour for Trilight mode.\nintensity:     Ambient intensity multiplier. Defaults to 1.0.\ndry_run:       If true, validates without applying changes.",
+      "input_schema": {
+        "properties": {
+          "mode": {
+            "type": "string"
+          },
+          "color": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "sky_color": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "equator_color": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "ground_color": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "intensity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "dry_run": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/lighting/set_ambient"
+    },
+    {
+      "name": "set_skybox",
+      "summary": "Assign a skybox material to the scene, or clear the current skybox.",
+      "description": "Assign a skybox material to the scene, or clear the current skybox.\n\nmaterial_path: AssetDatabase path to a skybox Material asset,\n               e.g. \"Assets/Materials/Skyboxes/NightSky.mat\".\n               Pass null or omit to clear the skybox.\ndry_run:       If true, validates the material path without applying the change.",
+      "input_schema": {
+        "properties": {
+          "material_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "dry_run": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/lighting/set_skybox"
+    },
+    {
+      "name": "set_fog",
+      "summary": "Configure scene fog via RenderSettings.",
+      "description": "Configure scene fog via RenderSettings.\n\nNote: In URP projects, this controls the legacy fog pass. For full\nURP fog, add a Fog override to a Volume in the scene instead.\n\nenabled: True to enable fog, false to disable.\ncolor:   Fog colour, linear RGB [r, g, b].\nmode:    Fog falloff mode: \"Linear\", \"Exponential\", or \"ExponentialSquared\".\ndensity: Fog density (Exponential and ExponentialSquared modes).\nstart:   Fog start distance in metres (Linear mode only).\nend:     Fog end distance in metres (Linear mode only).\ndry_run: If true, validates without applying changes.",
+      "input_schema": {
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "color": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "density": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "start": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "end": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "dry_run": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/lighting/set_fog"
+    },
+    {
+      "name": "propose_changes",
+      "summary": "Submit a list of proposed operations for human review in the Unity Editor.",
+      "description": "Submit a list of proposed operations for human review in the Unity Editor.\n\nDoes not execute anything. Returns a proposal_id to pass to execute_proposal\nonce the human approves in the MCP Operation Queue window.\n\nsummary:    A brief description of the overall intent, shown as the proposal title.\noperations: List of operation descriptors. Each must have:\n              id          — unique integer within this proposal\n              tool        — tool name, e.g. \"place_prefab\", \"create_light\"\n              description — plain-English description shown in the review UI\n              params      — dict of parameters exactly as you would pass to the tool",
+      "input_schema": {
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "operations": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "summary",
+          "operations"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/proposal/submit"
+    },
+    {
+      "name": "execute_proposal",
+      "summary": "Execute a pending proposal by its ID.",
+      "description": "Execute a pending proposal by its ID.\n\nAll operations are applied in order as a single Undo group — one Ctrl+Z\nreverses the entire proposal. The proposal must be in Pending status.\n\nproposal_id: The ID returned by propose_changes.",
+      "input_schema": {
+        "properties": {
+          "proposal_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "proposal_id"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/proposal/execute"
+    },
+    {
+      "name": "discard_proposal",
+      "summary": "Discard a pending proposal without executing it.",
+      "description": "Discard a pending proposal without executing it.\n\nproposal_id: The ID returned by propose_changes.",
+      "input_schema": {
+        "properties": {
+          "proposal_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "proposal_id"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/proposal/discard"
+    },
+    {
+      "name": "get_pending_proposals",
+      "summary": "Return all proposals currently waiting for human review.",
+      "description": "Return all proposals currently waiting for human review.\n\nUse this to check whether any proposals are pending before submitting\na new one, or to retrieve a proposal_id if you have lost track of it.",
+      "input_schema": {
+        "properties": {},
+        "type": "object"
+      },
+      "method": "GET",
+      "path": "/tools/proposal/pending"
+    },
+    {
+      "name": "place_prefab_batch",
+      "summary": "Place multiple prefab instances in a single round-trip.",
+      "description": "Place multiple prefab instances in a single round-trip.\n\nPrefer this over repeated place_prefab calls when placing more than\ntwo or three objects — it is significantly faster and groups all\nplacements under a single Undo entry.\n\nitems:   List of placement descriptors. Each must have:\n           prefab_path: str   — AssetDatabase path to the prefab\n           position:    [x,y,z]\n         And optionally:\n           rotation:    [x,y,z]  (Euler degrees, default [0,0,0])\n           scale:       [x,y,z]  (default [1,1,1])\n           parent_path: str       (scene hierarchy path, default root)\ndry_run: If true, validates all items and returns expected results without\n         creating anything.",
+      "input_schema": {
+        "properties": {
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "dry_run": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/placement/place_batch"
+    },
+    {
+      "name": "scatter_prefabs",
+      "summary": "Distribute prefab instances randomly within a circular area.",
+      "description": "Distribute prefab instances randomly within a circular area.\n\nprefab_path:      AssetDatabase path to the prefab to scatter.\ncenter:           World-space centre of the scatter area [x, y, z].\nradius:           Radius of the scatter circle in metres.\ncount:            Number of instances to place.\nmin_spacing:      Minimum distance in metres between any two instances.\n                  Use 0 to allow clustering. The tool will place as many\n                  as possible if min_spacing cannot be satisfied for all.\nalign_to_surface: If true, raycasts downward from each position to snap\n                  instances to the terrain or any collider below.\n                  Requires colliders to be present in the scene.\nparent_path:      Scene hierarchy path of the parent object.\nseed:             Optional integer seed for reproducible placement.\ndry_run:          If true, returns the positions that would be used\n                  without creating anything.",
+      "input_schema": {
+        "properties": {
+          "prefab_path": {
+            "type": "string"
+          },
+          "center": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "radius": {
+            "type": "number"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "min_spacing": {
+            "default": 0.0,
+            "type": "number"
+          },
+          "align_to_surface": {
+            "default": false,
+            "type": "boolean"
+          },
+          "parent_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "dry_run": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "prefab_path",
+          "center",
+          "radius",
+          "count"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/procedural/scatter"
+    },
+    {
+      "name": "place_along_path",
+      "summary": "Place prefab instances at regular intervals along a polyline.",
+      "description": "Place prefab instances at regular intervals along a polyline.\n\nUseful for walls, fences, roads, hedgerows, and corridors. The first\ninstance is placed at the first waypoint; subsequent instances are\nspaced evenly along the path until the last waypoint is reached.\n\nprefab_path:   AssetDatabase path to the prefab.\nwaypoints:     List of world-space points defining the path, e.g.\n               [[0,0,0], [10,0,0], [10,0,10]]. Minimum 2 points.\nspacing:       Distance in metres between instances.\nalign_to_path: If true, instances rotate to face along the path direction.\n               Useful for directional objects like fence panels.\nparent_path:   Scene hierarchy path of the parent object.\ndry_run:       If true, returns expected placement positions without\n               creating anything.",
+      "input_schema": {
+        "properties": {
+          "prefab_path": {
+            "type": "string"
+          },
+          "waypoints": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "spacing": {
+            "type": "number"
+          },
+          "align_to_path": {
+            "default": true,
+            "type": "boolean"
+          },
+          "parent_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "dry_run": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "prefab_path",
+          "waypoints",
+          "spacing"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/procedural/along_path"
+    },
+    {
+      "name": "fill_grid",
+      "summary": "Fill a rectangular grid area with prefab instances.",
+      "description": "Fill a rectangular grid area with prefab instances.\n\norigin:                World-space position of the grid's first cell [x, y, z].\ncell_size:             Size of each cell [width, depth] in metres (X and Z axes).\ncolumns:               Number of columns (X axis).\nrows:                  Number of rows (Z axis).\noffset_alternate_rows: If true, every other row is shifted by half a cell\n                       width, producing a brick or hex-like pattern.\nparent_path:           Scene hierarchy path of the parent object.\ndry_run:               If true, returns expected positions without creating anything.",
+      "input_schema": {
+        "properties": {
+          "prefab_path": {
+            "type": "string"
+          },
+          "origin": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "cell_size": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "columns": {
+            "type": "integer"
+          },
+          "rows": {
+            "type": "integer"
+          },
+          "offset_alternate_rows": {
+            "default": false,
+            "type": "boolean"
+          },
+          "parent_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "dry_run": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "prefab_path",
+          "origin",
+          "cell_size",
+          "columns",
+          "rows"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/procedural/fill_grid"
+    },
+    {
+      "name": "get_component_catalog",
+      "summary": "Returns every component type available in this Unity project.",
+      "description": "Returns every component type available in this Unity project.\n\nIncludes built-in Unity components (Rigidbody, BoxCollider, Light, AudioSource,\nCamera, NavMeshAgent, etc.) and user MonoBehaviour scripts from project assemblies.\n\nFor each component:\n  type_name         — use as component_type_name in add_component_to_object\n  display_name      — human-readable label\n  category         — Physics | Rendering | Audio | Animation | Navigation |\n                     Camera | Effects | UserScript | Physics2D\n  source           — \"BuiltIn\" or \"UserScript\"\n  script_path       — asset path for UserScript components, null for BuiltIn\n  disallow_multiple — true if only one instance is allowed per GameObject\n  properties[]     — serialized properties with:\n    property_path   — EXACT key to use in add_component_to_object properties\n    display_name    — Inspector label (e.g. \"Mass\", \"Use Gravity\")\n    type           — Float | Integer | Boolean | String | Enum:Name[Val0|Val1]\n                     | Vector2 | Vector3 | Color | ObjectReference:Type | etc.\n    default_value   — C# default as a string (informational)\n    enum_names[]    — valid enum value names (only present for Enum properties)\n\nCRITICAL — property paths:\n  For built-in components the serialized path is NOT the C# property name.\n  The catalog gives you the exact internal path:\n    Rigidbody.mass     → property_path \"m_Mass\"\n    Light.intensity    → property_path \"m_Intensity\"\n    Camera.fieldOfView → property_path \"field of view\"\n  Always use property_path from this catalog — never guess.\n  For user scripts, property_path matches the C# field name.\n\nCall once per session and cache; only changes when new scripts are added.",
+      "input_schema": {
+        "properties": {},
+        "type": "object"
+      },
+      "method": "GET",
+      "path": "/assets/components/catalog"
+    },
+    {
+      "name": "add_component_to_object",
+      "summary": "Adds a component to a scene GameObject and sets its properties atomically.\nThe operation is registered with Unity's Undo system.",
+      "description": "Adds a component to a scene GameObject and sets its properties atomically.\nThe operation is registered with Unity's Undo system.\n\nWORKFLOW:\n  1. Call get_component_catalog() to find the type and valid property paths.\n  2. Call get_scene_hierarchy() if you need to confirm the object path.\n  3. Call add_component_to_object() with the type and desired properties.\n\nPROPERTY FORMAT:\n  properties is a list of { \"property_path\": \"...\", \"value\": ... }.\n  Use property_path exactly as returned by get_component_catalog.\n\n  Value formats by type:\n    Float, Integer  → number:         9.81\n    Boolean         → boolean:        true\n    String          → string:         \"idle\"\n    Enum            → string:         \"Continuous\"  (use enum_names from catalog)\n    Vector2         → array:          [1.0, 0.0]\n    Vector3         → array:          [0.0, -9.81, 0.0]\n    Color           → array [r,g,b,a]: [1.0, 0.5, 0.0, 1.0]  (0–1 range)\n    Bounds          → array [cx,cy,cz,sx,sy,sz]: [0, 0, 0, 2, 2, 2]\n    Rect            → array [x,y,w,h]: [0, 0, 100, 50]\n    LayerMask       → integer bitmask: 1\n    ObjectReference → object: { \"asset_guid\": \"abc123...\" }\n\nEXAMPLES:\n  Add a Rigidbody with custom mass:\n    object_path = \"/Environment/Barrel\"\n    component_type_name = \"Rigidbody\"\n    properties = [\n      { \"property_path\": \"m_Mass\",       \"value\": 5.0   },\n      { \"property_path\": \"m_UseGravity\",  \"value\": false }\n    ]\n\n  Add a warm point light:\n    component_type_name = \"Light\"\n    properties = [\n      { \"property_path\": \"m_Type\",      \"value\": \"Point\"              },\n      { \"property_path\": \"m_Color\",     \"value\": [1.0, 0.85, 0.6, 1.0] },\n      { \"property_path\": \"m_Intensity\", \"value\": 2.0                  },\n      { \"property_path\": \"m_Range\",     \"value\": 10.0                 }\n    ]\n\nobject_path:          Hierarchy path, e.g. \"/Player\", \"/Environment/Barrel\"\ncomponent_type_name:  type_name from get_component_catalog\nproperties:           List of { property_path, value } (omit to keep defaults)\nupdate_if_exists:     If true, update an existing component instead of erroring",
+      "input_schema": {
+        "properties": {
+          "object_path": {
+            "type": "string"
+          },
+          "component_type_name": {
+            "type": "string"
+          },
+          "properties": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "update_if_exists": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "object_path",
+          "component_type_name"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/components/add"
+    },
+    {
+      "name": "get_scaffold_zones",
+      "summary": "Returns all ScaffoldZone instances in the active scene.",
+      "description": "Returns all ScaffoldZone instances in the active scene.\n\nFor each zone: zone_name, zone_path, zone_type, design_note, dressing_tags,\nanchor_count, marker_count, position, rotation.\n\nCall this after create_zone_scaffold to confirm creation and to get the\nzone_path needed for subsequent calls.",
+      "input_schema": {
+        "properties": {},
+        "type": "object"
+      },
+      "method": "GET",
+      "path": "/assets/scaffold/zones"
+    },
+    {
+      "name": "get_scaffold_anchors",
+      "summary": "Returns all ScaffoldAnchor instances in the active scene.",
+      "description": "Returns all ScaffoldAnchor instances in the active scene.\n\nFor each anchor: label, anchor_path, anchor_type, position, zone_path.\n\nanchor_path is what you pass to create_gameplay_marker's anchor_path parameter:\n  \"/ForgottenTunnels/Zone1_Descent/step_05\"\n  \"/ForgottenTunnels/Zone1_Descent/_mid\"\n\nanchor_type values: Entry, Exit, Named, Step, WallRef, Connection",
+      "input_schema": {
+        "properties": {},
+        "type": "object"
+      },
+      "method": "GET",
+      "path": "/assets/scaffold/anchors"
+    },
+    {
+      "name": "get_scaffold_markers",
+      "summary": "Returns all GameplayMarker instances in the active scene.",
+      "description": "Returns all GameplayMarker instances in the active scene.\n\nFor each marker: label, marker_path, marker_type, semantic_tags,\ndetection_radius, bake_state (Pending/Resolved/Baked), position, zone_path.\n\nUse this to review all markers before starting the bake workflow, or to\nfind marker_path values for update_gameplay_marker calls.",
+      "input_schema": {
+        "properties": {},
+        "type": "object"
+      },
+      "method": "GET",
+      "path": "/assets/scaffold/markers"
+    },
+    {
+      "name": "create_zone_scaffold",
+      "summary": "Creates a ScaffoldZone GameObject with auto-generated anchor points.",
+      "description": "Creates a ScaffoldZone GameObject with auto-generated anchor points.\n\n── ZONE TYPES ────────────────────────────────────────────────────────────\n\nSpiralStaircase  Descends on local -Y. Anchors: _entry (top), step_01…step_NN,\n                 _mid, _exit (bottom). Required dims: width, step_count,\n                 riser_height, turns.\n\nStraightCorridor Extends on local +Z. Anchors: _entry, _exit, _mid, _quarter,\n                 _three_quarter, _left_wall_mid, _right_wall_mid.\n                 Required dims: width, depth (length), height.\n\nCircularChamber  Centred on origin. Anchors: _entry (south), _exit (north),\n                 _center, _far_end, _north/south/east/west, _perimeter_00…07.\n                 Required dims: diameter, height.\n\nRectangularRoom  Origin at south face. Anchors: _entry, _exit, _center,\n                 _corner_ne/nw/se/sw, _wall_*_mid ×4.\n                 Required dims: width, depth, height.\n\nCrawlTunnel      Anchors: _entry, _mid, _exit.\n                 Required dims: width, depth, height.\n\nOpenArea         Anchors: _center, _edge_north/south/east/west, _edge_ne/nw/se/sw.\n                 Required dims: radius (circular) OR width + depth (box).\n\nCustom           No auto-generated anchors. Add with create_reference_point.\n\n── DIMENSIONS ────────────────────────────────────────────────────────────\n\nPass only the fields relevant to the chosen zone_type. Omitted fields use\nsensible defaults for that type.\n\n{\n  \"width\":        3.0,   \"depth\":       30.0,   \"height\":      3.0,\n  \"diameter\":    20.0,   \"step_count\":  25,     \"riser_height\": 0.2,\n  \"turns\":        2.5,   \"radius\":      10.0\n}\n\n── PARAMETERS ────────────────────────────────────────────────────────────\n\nzone_name:      GameObject name, e.g. \"Zone1_Descent\"\nzone_type:      See zone type list above\ndimensions:     Dict — only include fields relevant to this zone type\nentry_position: World-space [x, y, z] of the zone entry. Default [0, 0, 0]\nentry_rotation: Euler angles [x, y, z]. Default [0, 0, 0]\nparent_path:    Scene hierarchy path of a container, e.g. \"/ForgottenTunnels\"\ndesign_note:    Verbatim text from the design document for this zone\ndressing_tags:  Ambient fill tags for bake step, e.g. [\"dungeon\", \"damp\"]\n\nReturns: { zone_path, zone_type, anchors_created, anchor_paths[] }",
+      "input_schema": {
+        "properties": {
+          "zone_name": {
+            "type": "string"
+          },
+          "zone_type": {
+            "type": "string"
+          },
+          "dimensions": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "entry_position": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "entry_rotation": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "parent_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "design_note": {
+            "default": "",
+            "type": "string"
+          },
+          "dressing_tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "zone_name",
+          "zone_type",
+          "dimensions"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/scaffold/create_zone"
+    },
+    {
+      "name": "link_zones",
+      "summary": "Connects two ScaffoldZones with a transition connector zone.",
+      "description": "Connects two ScaffoldZones with a transition connector zone.\n\nCreates a new ScaffoldZone of transition_type at the from_zone's _exit\nanchor, oriented toward the to_zone's _entry anchor. Updates ConnectedZones\non all three zones.\n\ntransition_type: any ScaffoldZoneType (usually StraightCorridor or CrawlTunnel)\ndimensions:      size of the transition zone (same dict format as create_zone_scaffold)\nconnection_label: name for the connector, e.g. \"Conn_Z1_Z2\"\n\nReturns: { connection_path, from_anchor, to_anchor }",
+      "input_schema": {
+        "properties": {
+          "from_zone_path": {
+            "type": "string"
+          },
+          "to_zone_path": {
+            "type": "string"
+          },
+          "transition_type": {
+            "type": "string"
+          },
+          "dimensions": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "connection_label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "from_zone_path",
+          "to_zone_path",
+          "transition_type",
+          "dimensions",
+          "connection_label"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/scaffold/link_zones"
+    },
+    {
+      "name": "create_reference_point",
+      "summary": "Adds a named ScaffoldAnchor to an existing zone manually.",
+      "description": "Adds a named ScaffoldAnchor to an existing zone manually.\n\nUse this for positions mentioned in the design document that weren't\nauto-generated, e.g. a specific alcove or off-path interaction point.\n\nPosition resolved in priority order:\n  1. anchor_path + position_offset  (relative to an existing anchor)\n  2. world_position + position_offset (absolute world position)\n\nanchor_type values: Named, Entry, Exit, WallRef, Connection, Step\n\nThe anchor is parented to the zone containing anchor_path, or to zone_path.\n\nReturns: { anchor_path, anchor_type, position }",
+      "input_schema": {
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "anchor_type": {
+            "default": "Named",
+            "type": "string"
+          },
+          "zone_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "anchor_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "position_offset": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "world_position": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/scaffold/create_reference_point"
+    },
+    {
+      "name": "create_gameplay_marker",
+      "summary": "Places a GameplayMarker at a position in a ScaffoldZone.",
+      "description": "Places a GameplayMarker at a position in a ScaffoldZone.\n\nA GameplayMarker records functional intent WITHOUT referencing any specific\nprefab. The prefab connection is made during the bake step via semantic_tags\nmatched against PrefabMetadata.tags[].\n\n── MARKER TYPES ──────────────────────────────────────────────────────────\n\nEnemySpawn     Enemy that spawns at this position\nTrap           Trap or hazard\nLootContainer  Container with items\nInteraction    Interactable object (lever, valve, door, dialogue trigger)\nAmbientDressing Environmental dressing hint for zone-level bake fill\nCustom         Any other functional intent\n\n── PLACEMENT ─────────────────────────────────────────────────────────────\n\nProvide anchor_path OR world_position. position_offset is added to either.\nThe marker is placed as a child of the zone containing anchor_path.\nUse get_scaffold_anchors to list valid anchor paths.\n\n── SEMANTIC TAGS ─────────────────────────────────────────────────────────\n\nMatched against PrefabMetadata.tags[] during the bake resolve step.\nBe specific — more overlap = better prefab match score:\n  Bad:  [\"enemy\"]\n  Good: [\"enemy\", \"drowner\", \"undead\", \"sound_sensitive\", \"blind\"]\n\n── CONFIG ────────────────────────────────────────────────────────────────\n\nOptional dict with marker-type-specific data. Stored as ConfigJson.\n\nEnemySpawn:\n  { \"enemy_type\": \"AncientDrowner\", \"health\": 80, \"damage\": 15,\n    \"detection_type\": \"hearing\", \"behavior\": \"stationary_head_tracking\" }\n\nTrap:\n  { \"trap_type\": \"squeaky_step\", \"alert_radius\": 20.0,\n    \"trigger_condition\": \"walk\", \"crouch_reduction\": 0.8,\n    \"fixable\": true, \"fix_item\": \"Oil\",\n    \"fix_state_key\": \"squeaky_step_05_oiled\" }\n\nLootContainer:\n  { \"container_type\": \"skeleton\",\n    \"loot_items\": [\"DryTeeth_x15\", \"OldKey\", \"DrownnerEssence\"] }\n\n── PARAMETERS ────────────────────────────────────────────────────────────\n\ndetection_radius: World-space radius of the trigger/detection sphere.\n                  Drawn as a translucent sphere in the scene view. 0 = none.\n\nReturns: { marker_path, marker_type, position }",
+      "input_schema": {
+        "properties": {
+          "marker_label": {
+            "type": "string"
+          },
+          "marker_type": {
+            "type": "string"
+          },
+          "semantic_tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "anchor_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "world_position": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "position_offset": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "detection_radius": {
+            "default": 0.0,
+            "type": "number"
+          },
+          "config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "marker_label",
+          "marker_type",
+          "semantic_tags"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/scaffold/create_marker"
+    },
+    {
+      "name": "update_gameplay_marker",
+      "summary": "Updates an existing GameplayMarker's semantic_tags, config, or detection radius.",
+      "description": "Updates an existing GameplayMarker's semantic_tags, config, or detection radius.\n\nOnly provided fields are updated — omitted fields are unchanged.\n\nmarker_path: exact path from create_gameplay_marker or get_scaffold_markers.\n\nReturns: { marker_path, updated_fields[] }",
+      "input_schema": {
+        "properties": {
+          "marker_path": {
+            "type": "string"
+          },
+          "semantic_tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "detection_radius": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "marker_path"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/scaffold/update_marker"
+    },
+    {
+      "name": "hide_scaffold",
+      "summary": "Sets all root-level ScaffoldZone GameObjects inactive.",
+      "description": "Sets all root-level ScaffoldZone GameObjects inactive.\n\nNon-destructive — all scaffold data is preserved. Call show_scaffold to restore.\n\nReturns: { active: false, zones_affected, message }",
+      "input_schema": {
+        "properties": {},
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/scaffold/hide_scaffold"
+    },
+    {
+      "name": "show_scaffold",
+      "summary": "Re-activates all root-level ScaffoldZone GameObjects. Reverses hide_scaffold.",
+      "description": "Re-activates all root-level ScaffoldZone GameObjects. Reverses hide_scaffold.\n\nReturns: { active: true, zones_affected, message }",
+      "input_schema": {
+        "properties": {},
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/scaffold/show_scaffold"
+    },
+    {
+      "name": "resolve_scaffold_markers",
+      "summary": "Matches each Pending GameplayMarker's semantic_tags against every\nPrefabMetadata asset in the project and returns ranked prefab candidates.",
+      "description": "Matches each Pending GameplayMarker's semantic_tags against every\nPrefabMetadata asset in the project and returns ranked prefab candidates.\n\nCall this after the scaffold is complete and before execute_bake.\nPresent the proposals to the user and wait for confirmation before baking.\n\n── SCORING ──────────────────────────────────────────────────────────────\n\nEach prefab is scored per marker:\n  tag_overlap_count   — how many of the marker's semantic_tags appear\n                        in the prefab's PrefabMetadata.tags[]\n  scene_context_bonus — +1 per tag that also appears in the active\n                        SceneContext.activeTags (set in McpBridgeSettings)\n  total_score         — overlap + bonus, used for ranking\n\nCandidates are returned sorted descending by total_score.\nTies are broken alphabetically by asset_path for stable ordering.\n\n── RESPONSE ─────────────────────────────────────────────────────────────\n\n{\n  \"proposals\": [\n    {\n      \"marker_path\":   \"/ForgottenTunnels/Zone1_Descent/AncientDrowner_Mid\",\n      \"marker_label\":  \"AncientDrowner_Mid\",\n      \"marker_type\":   \"EnemySpawn\",\n      \"semantic_tags\": [\"enemy\", \"drowner\", \"undead\"],\n      \"candidates\": [\n        {\n          \"asset_guid\":          \"abc123...\",\n          \"asset_path\":          \"Assets/Prefabs/Enemies/AncientDrowner.prefab\",\n          \"display_name\":        \"Ancient Drowner\",\n          \"tag_overlap_count\":   3,\n          \"scene_context_bonus\": 1,\n          \"total_score\":         4\n        }\n      ]\n    }\n  ],\n  \"unresolvable\": [\n    {\n      \"marker_path\":   \"...\",\n      \"marker_label\":  \"SqueakyStep_05\",\n      \"semantic_tags\": [\"trap\", \"squeaky_step\"]\n    }\n  ]\n}\n\nMarkers in unresolvable had zero tag matches. Either add PrefabMetadata\nto a suitable prefab, adjust the marker's semantic_tags, or skip those\nmarkers and handle them manually.\n\n── PARAMETERS ───────────────────────────────────────────────────────────\n\nzone_path:                 Optional — restrict to one zone's markers.\n                           Full hierarchy path, e.g. \"/ForgottenTunnels/Zone1_Descent\".\n                           If omitted, all Pending markers in the scene are resolved.\nmarker_types:              Optional — filter by type, e.g. [\"EnemySpawn\", \"LootContainer\"].\n                           If omitted, all types are included.\nmax_candidates_per_marker: How many ranked candidates to return per marker. Default 3.",
+      "input_schema": {
+        "properties": {
+          "zone_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "marker_types": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "max_candidates_per_marker": {
+            "default": 3,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/scaffold/resolve_markers"
+    },
+    {
+      "name": "execute_bake",
+      "summary": "Instantiates prefabs at confirmed GameplayMarker positions and marks each\nmarker as Baked. All operations are registered with Unity's Undo system.",
+      "description": "Instantiates prefabs at confirmed GameplayMarker positions and marks each\nmarker as Baked. All operations are registered with Unity's Undo system.\n\nCall this AFTER resolve_scaffold_markers and after the user has confirmed\n(or you have selected) which prefab candidate to use for each marker.\n\n── CONFIRMATIONS FORMAT ─────────────────────────────────────────────────\n\nconfirmations = [\n  {\n    \"marker_path\": \"/ForgottenTunnels/Zone1_Descent/AncientDrowner_Mid\",\n    \"asset_guid\":  \"abc123...\"\n  },\n  {\n    \"marker_path\": \"/ForgottenTunnels/Zone1_Descent/Loot_Skeleton_Bottom\",\n    \"asset_guid\":  \"def456...\"\n  }\n]\n\nmarker_path  — exact path from get_scaffold_markers or resolve_scaffold_markers\nasset_guid   — the chosen candidate's asset_guid from resolve_scaffold_markers\n\n── WHAT HAPPENS ─────────────────────────────────────────────────────────\n\nFor each confirmation:\n  1. The prefab is instantiated at the marker's world position and rotation\n  2. The instance is named {marker_label}_Instance\n  3. The instance is parented to the same zone container as the marker\n  4. The marker's bake_state is set to Baked\n  5. The marker's resolved_prefab_guid is set\n\nMarkers are NOT deleted — they stay in the scene as Baked (teal gizmo)\nto record the design intent. Use hide_scaffold() to suppress them visually.\n\n── PARAMETERS ───────────────────────────────────────────────────────────\n\nconfirmations:       List of { marker_path, asset_guid } pairs\nhide_scaffold_after: If true, set the affected zone(s) inactive after baking.\n                     Reversible via show_scaffold(). Default false.\n\nReturns: { baked_count, instances[{ marker_label, instance_path }], warnings[] }",
+      "input_schema": {
+        "properties": {
+          "confirmations": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "hide_scaffold_after": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "confirmations"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/scaffold/execute_bake"
+    },
+    {
+      "name": "get_cutscene_templates",
+      "summary": "Lists all available cutscene templates with their parameter schemas.",
+      "description": "Lists all available cutscene templates with their parameter schemas.\n\nCall this before create_cutscene_sequence to discover what templates are\navailable and what parameters each one requires.\n\nReturns:\n  cinemachine_version  — installed Cinemachine package version, or null if absent\n  timeline_version     — installed Timeline package version\n  templates[]          — list of templates, each with:\n    name               — pass this as the 'template' argument to create_cutscene_sequence\n    description        — what the template creates and when to use it\n    parameters[]       — each parameter with name, type, required, default, description\n\nIf Cinemachine is not installed, templates is empty and message explains why.\n\nPhase 1 available templates:\n  DialogueCamera — over-shoulder / two-shot for NPC dialogue",
+      "input_schema": {
+        "properties": {},
+        "type": "object"
+      },
+      "method": "GET",
+      "path": "/assets/cutscene/templates"
+    },
+    {
+      "name": "create_cutscene_sequence",
+      "summary": "Creates a cutscene sequence from a named template.",
+      "description": "Creates a cutscene sequence from a named template.\n\nInstantiates the template to produce:\n  - A container GameObject under /Cutscenes/{sequence_name}/ in the scene\n  - One or more Cinemachine virtual camera GameObjects\n  - A Timeline .playable asset with Cinemachine, Activation, and Signal tracks\n  - Signal assets in Assets/Cutscenes/Signals/ (reused across sequences)\n\n── TEMPLATE: DialogueCamera ─────────────────────────────────────────────\n\nCreates an over-shoulder / two-shot dialogue camera. Blends from the active\nfollow camera, holds during dialogue, then blends back.\n\nRequired params:\n  player_path (string)  — hierarchy path of the player root, e.g. \"/Player\"\n  npc_path    (string)  — hierarchy path of the NPC, e.g. \"/Village/Merchant_A\"\n  duration    (float)   — total sequence length in seconds, e.g. 8.0\n\nOptional params:\n  camera_side (string)  — \"left\" | \"right\" | \"front\" | \"auto\" (default \"auto\")\n                          \"auto\" places the camera on the side facing the current\n                          Scene view camera at creation time.\n  blend_in    (float)   — seconds to blend in from follow cam (default 0.5)\n  blend_out   (float)   — seconds to blend back to follow cam (default 0.5)\n  look_offset (float[3])— local offset from NPC root to look at (default [0,1.6,0])\n\nExample:\n  template      = \"DialogueCamera\"\n  sequence_name = \"DialogueCamera_MerchantA\"\n  params        = {\n    \"player_path\": \"/Player\",\n    \"npc_path\":    \"/Village/Merchant_A\",\n    \"camera_side\": \"right\",\n    \"duration\":    8.0,\n    \"blend_in\":    0.5,\n    \"blend_out\":   0.5,\n    \"look_offset\": [0, 1.7, 0]\n  }\n\n── AFTER CREATION ────────────────────────────────────────────────────────\n\nThe sequence is created but not connected to any gameplay trigger.\nThe designer must:\n\n1. Connect to a trigger (ALWAYS required):\n     GetComponent<PlayableDirector>().Play();\n   Wire this to an AnimationEvent, UnityEvent, proximity trigger, etc.\n\n2. CinemachineBrain (if cinemachine_brain_found is false):\n     Add a CinemachineBrain component to the Main Camera.\n\n3. Signal receivers (when using dialogue_start / dialogue_end signals):\n     Add a SignalReceiver to the player or dialogue manager.\n     Wire dialogue_start → open dialogue UI\n     Wire dialogue_end   → close dialogue UI, return control\n\n── PARAMETERS ───────────────────────────────────────────────────────────\n\ntemplate:      Template name from get_cutscene_templates (e.g. \"DialogueCamera\")\nsequence_name: Name for the scene container, e.g. \"DialogueCamera_MerchantA\"\nparams:        Template-specific parameter dict (see each template above)\ntimeline_path: Optional asset path for the .playable file.\n               Defaults to \"Assets/Cutscenes/{sequence_name}.playable\"\n\nReturns:\n  { sequence_name, container_path, timeline_path, vcam_paths[],\n    signals_created[], cinemachine_brain_found, warnings[] }",
+      "input_schema": {
+        "properties": {
+          "template": {
+            "type": "string"
+          },
+          "sequence_name": {
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "timeline_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "template",
+          "sequence_name",
+          "params"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/cutscene/create_sequence"
+    },
+    {
+      "name": "preview_cutscene_sequence",
+      "summary": "Plays back an existing cutscene sequence in the Unity Editor.",
+      "description": "Plays back an existing cutscene sequence in the Unity Editor.\n\nSelects the container in the Hierarchy, opens the Timeline window,\nresets playback to t=0, and calls PlayableDirector.Play().\n\ncontainer_path: full hierarchy path of the sequence container,\n                e.g. \"/Cutscenes/DialogueCamera_MerchantA\"\n                Use get_scene_hierarchy to find the path if unsure.\n\nUseful for:\n  - Checking that a newly created sequence looks right before committing\n  - Reviewing a sequence after update_cutscene_sequence changes\n  - Confirming signal timing and camera blend feel\n\nReturns: { container_path, duration, message }\n\nNOTE: Playback runs in the Editor scene view. The designer can stop it\nat any time by clicking the Stop button in the Timeline window.\nCalling preview_cutscene_sequence again resets to t=0 and replays.",
+      "input_schema": {
+        "properties": {
+          "container_path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "container_path"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/cutscene/preview_sequence"
+    },
+    {
+      "name": "update_cutscene_sequence",
+      "summary": "Modifies an existing cutscene sequence in place.",
+      "description": "Modifies an existing cutscene sequence in place.\n\nUpdates only the fields you provide — everything else is unchanged.\nAll changes are registered with Unity's Undo system.\n\n── WHAT CAN BE UPDATED ──────────────────────────────────────────────────\n\nALL templates:\n  duration    (float)   — total sequence length in seconds\n  blend_in    (float)   — seconds to blend in (DialogueCamera, FocusCut)\n  blend_out   (float)   — seconds to blend out (DialogueCamera, FocusCut)\n  ease_in     (float)   — fraction for ease-in  (AreaReveal, ArrivalFlythrough)\n  ease_out    (float)   — fraction for ease-out (AreaReveal, ArrivalFlythrough)\n\nWhen duration or ease values change, the Timeline clip lengths, ActivationTrack\nclip, signal marker positions, and cart animation curve are all updated together.\n\nAreaReveal:\n  waypoints   (float[3][])  — new camera path positions (min 2)\n                              Updates CinemachineSmoothPath (CM2) or\n                              SplineContainer knots (CM3) and rebakes the\n                              cart animation curve.\n\nArrivalFlythrough:\n  waypoints          (float[3][])  — new camera path (min 3)\n  look_at_position   (float[3])    — new fixed world-space look target\n\nFocusCut:\n  camera_offset  (float[3])  — new offset from the target object to the camera,\n                               e.g. [0, 1.5, -2.0]\n\nDialogueCamera:\n  look_offset  (float[3])  — adjusts the LookTarget height/position.\n                             Y component is treated as absolute world height.\n\n── EXAMPLE ──────────────────────────────────────────────────────────────\n\n# Extend an AreaReveal and push the path further out\nupdate_cutscene_sequence(\n    container_path = \"/Cutscenes/AreaReveal_DungeonEntrance\",\n    template       = \"AreaReveal\",\n    params         = {\n        \"waypoints\": [[0,10,0], [15,6,-15], [30,4,-28]],\n        \"duration\":  9.0,\n        \"ease_out\":  0.3\n    }\n)\n\n# Tighten a FocusCut blend\nupdate_cutscene_sequence(\n    container_path = \"/Cutscenes/FocusCut_AncientKey\",\n    template       = \"FocusCut\",\n    params         = {\n        \"blend_in\":  0.2,\n        \"blend_out\": 0.3,\n        \"duration\":  2.0\n    }\n)\n\n── PARAMETERS ───────────────────────────────────────────────────────────\n\ncontainer_path: full hierarchy path returned by create_cutscene_sequence\ntemplate:       the template name used at creation (e.g. \"AreaReveal\")\nparams:         dict containing only the fields you want to change\n\nReturns: { container_path, updated_fields[], warnings[] }",
+      "input_schema": {
+        "properties": {
+          "container_path": {
+            "type": "string"
+          },
+          "template": {
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": true,
+            "type": "object"
+          }
+        },
+        "required": [
+          "container_path",
+          "template",
+          "params"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/cutscene/update_sequence"
+    },
+    {
+      "name": "find_objects",
+      "summary": "Searches the active scene for GameObjects matching one or more filters.",
+      "description": "Searches the active scene for GameObjects matching one or more filters.\n\nAt least one filter must be provided. Filters are AND-combined.\nCall get_scene_hierarchy instead if you need the full object tree.\n\n── FILTERS ──────────────────────────────────────────────────────────────\n\ntag             Exact Unity tag, e.g. \"Interactable\", \"Enemy\", \"Prop\"\n\ncomponent_type  Component type name from get_component_catalog,\n                e.g. \"Light\", \"Rigidbody\", \"NavMeshAgent\", \"AudioSource\",\n                or your own script names like \"DialogueTrigger\"\n\nname_pattern    Glob pattern for the object name.\n                * = any characters, ? = one character\n                e.g. \"Barrel*\", \"*Torch*\", \"Fence_??\"\n                Case-insensitive.\n\nlayer           Unity layer name, e.g. \"Environment\", \"Pickable\", \"Default\"\n\nnear_position   [x, y, z] world-space centre of a sphere query.\n                Returns objects whose transform position is within\n                near_radius metres (default 20m) of this point.\n                Also catches collider-bearing objects via Physics.OverlapSphere.\n\n── RESPONSE ─────────────────────────────────────────────────────────────\n\nEach object in the results array contains:\n  name, path, position, rotation, scale, tag, layer, is_active, components[]\n\npath is what other tools expect as object_path, e.g.:\n  \"/Village/Props/Barrel_04\"\n  \"/World/Lighting/Lamp_03\"\n\ncomponents[] lists the C# type names of every component on the object.\n\n── EXAMPLES ─────────────────────────────────────────────────────────────\n\n# All lights within 30m of a point\nfind_objects(component_type=\"Light\", near_position=[45, 0, 22], near_radius=30)\n\n# All objects tagged \"Prop\" near a market stall\nfind_objects(tag=\"Prop\", near_position=[45, 0, 22], near_radius=10)\n\n# All objects whose name starts with \"Barrel\"\nfind_objects(name_pattern=\"Barrel*\")\n\n# All NavMesh obstacles in the scene\nfind_objects(component_type=\"NavMeshObstacle\")\n\n# All objects on the Environment layer near a camp\nfind_objects(layer=\"Environment\", near_position=[100, 0, 50], near_radius=25)\n\ninclude_inactive: include inactive GameObjects (default false)\nmax_results:      cap on returned objects (default 100)",
+      "input_schema": {
+        "properties": {
+          "tag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "component_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "name_pattern": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "near_position": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "near_radius": {
+            "default": 20.0,
+            "type": "number"
+          },
+          "include_inactive": {
+            "default": false,
+            "type": "boolean"
+          },
+          "max_results": {
+            "default": 100,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/scene/find_objects"
+    },
+    {
+      "name": "get_object_properties",
+      "summary": "Reads the serialised property values of a component on a scene object.",
+      "description": "Reads the serialised property values of a component on a scene object.\n\nWORKFLOW: call get_component_catalog to find property_path strings,\nthen call this to read current values, then set_object_properties to change them.\n\nobject_path:    hierarchy path from get_scene_hierarchy or find_objects,\n                e.g. \"/Village/Lamp_03\"\n\ncomponent_type: type_name from get_component_catalog, e.g. \"Light\", \"Rigidbody\"\n\nproperty_paths: list of specific property paths to read, e.g.\n                [\"m_Intensity\", \"m_Color\", \"m_Range\"]\n                If omitted, returns all top-level serialised properties.\n                Use get_component_catalog to find valid property paths.\n\nRESPONSE per property:\n  property_path  — exact path to use in set_object_properties\n  value          — current value (float, int, bool, string, [r,g,b,a], etc.)\n  type           — Float | Integer | Boolean | String | Color | Vector3 |\n                   Enum:LightType[Spot|Directional|Point|Area] | ObjectReference | ...\n\nEXAMPLE — read a light's current settings:\n  get_object_properties(\"/Village/Lamp_03\", \"Light\",\n                        [\"m_Intensity\", \"m_Color\", \"m_Range\", \"m_Type\"])",
+      "input_schema": {
+        "properties": {
+          "object_path": {
+            "type": "string"
+          },
+          "component_type": {
+            "type": "string"
+          },
+          "property_paths": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "object_path",
+          "component_type"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/objects/get_properties"
+    },
+    {
+      "name": "set_object_properties",
+      "summary": "Modifies serialised property values on a component that already exists\non a scene object. All changes are registered with Unity's Undo system.",
+      "description": "Modifies serialised property values on a component that already exists\non a scene object. All changes are registered with Unity's Undo system.\n\nobject_path:    hierarchy path of the target object\ncomponent_type: type_name from get_component_catalog\ncreate_if_missing: if true, adds the component if it isn't present\n                   (same as add_component_to_object). Default false.\n\nPROPERTIES FORMAT:\n  List of { \"property_path\": \"...\", \"value\": ... } — identical format to\n  add_component_to_object. Use property_path values from get_component_catalog\n  or from get_object_properties.\n\n  float/int   → number:           1.5\n  bool        → boolean:          true\n  string      → string:           \"name\"\n  enum        → string:           \"Point\"  (use enum_names from catalog)\n  Vector3     → array:            [0, -9.81, 0]\n  Color       → array [r,g,b,a]:  [1.0, 0.85, 0.6, 1.0]\n  ObjectRef   → object:           { \"asset_guid\": \"abc123...\" }\n\nEXAMPLE — normalise a light that's too bright:\n  set_object_properties(\n      \"/Village/Lamp_03\",\n      \"Light\",\n      [\n        { \"property_path\": \"m_Intensity\", \"value\": 1.0 },\n        { \"property_path\": \"m_Color\",     \"value\": [1.0, 0.85, 0.6, 1.0] }\n      ]\n  )\n\nReturns: { object_path, component_type, applied_properties[], failed_properties[], warnings[] }",
+      "input_schema": {
+        "properties": {
+          "object_path": {
+            "type": "string"
+          },
+          "component_type": {
+            "type": "string"
+          },
+          "properties": {
+            "type": "array",
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            }
+          },
+          "create_if_missing": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "object_path",
+          "component_type",
+          "properties"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/objects/set_properties"
+    },
+    {
+      "name": "set_object_metadata",
+      "summary": "Sets identity properties on one or more GameObjects in a single Undo-able call.\nAccepts a list of paths so an entire dressing pass can be tagged/layered/flagged\nat once without iterating each object individually.",
+      "description": "Sets identity properties on one or more GameObjects in a single Undo-able call.\nAccepts a list of paths so an entire dressing pass can be tagged/layered/flagged\nat once without iterating each object individually.\n\nOnly the fields you provide are updated. Omitted fields are unchanged.\n\nobject_paths:  one or more hierarchy paths (bulk)\n\nname:          rename the object(s). For a single object: exact name.\n               For multiple objects: \"Barrel\" → Barrel_01, Barrel_02, ...\n\ntag:           Unity tag name. Must already exist in Project Settings → Tags.\n               e.g. \"Prop\", \"Interactable\", \"Enemy\", \"Environment\"\n\nlayer:         Unity layer name, e.g. \"Default\", \"Environment\", \"Pickable\"\n\nstatic_flags:  list of one or more:\n                 \"LightmapStatic\"        (also accepts \"ContributeGI\" for Unity 2022+)\n                 \"OccluderStatic\"\n                 \"BatchingStatic\"\n                 \"NavigationStatic\"\n                 \"OccludeeStatic\"\n                 \"ReflectionProbeStatic\"\n                 \"OffMeshLinkGeneration\"\n               Pass [\"All\"] to set every flag. Pass [\"None\"] to clear all.\n\nis_active:     set the GameObject active or inactive\n\nEXAMPLE — mark 30 placed props for lightmap baking:\n  set_object_metadata(\n      object_paths=[...30 paths from dress_area...],\n      tag=\"Prop\",\n      layer=\"Environment\",\n      static_flags=[\"LightmapStatic\", \"OccluderStatic\"]\n  )\n\nReturns: { updated_count, applied[], warnings[] }",
+      "input_schema": {
+        "properties": {
+          "object_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "tag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "static_flags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "object_paths"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/objects/set_metadata"
+    },
+    {
+      "name": "reparent_objects",
+      "summary": "Moves one or more objects to a new parent in the hierarchy.\nRegistered with Unity's Undo system.",
+      "description": "Moves one or more objects to a new parent in the hierarchy.\nRegistered with Unity's Undo system.\n\nobject_paths:        objects to move\nnew_parent_path:     hierarchy path of the new parent.\n                     Pass null or omit to move objects to the scene root.\nkeep_world_position: if true, the object stays at its current world-space\n                     position after reparenting (default true).\n                     If false, the local transform is preserved instead.\n\nEXAMPLE — organise placed objects into a container:\n  reparent_objects(\n      object_paths=[\"/Barrel_01\", \"/Barrel_02\", \"/Crate_03\"],\n      new_parent_path=\"/Village/MarketStall_NE\"\n  )\n\nReturns: { reparented_count, warnings[] }",
+      "input_schema": {
+        "properties": {
+          "object_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "new_parent_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "keep_world_position": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "object_paths"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/objects/reparent"
+    },
+    {
+      "name": "duplicate_objects",
+      "summary": "Creates one or more copies of existing scene objects, preserving all\ncomponents and property values. All copies are registered with Undo.",
+      "description": "Creates one or more copies of existing scene objects, preserving all\ncomponents and property values. All copies are registered with Undo.\n\nobject_paths:    objects to duplicate (each gets `count` copies)\n\ncount:           number of copies per source object (default 1)\n\nposition_offset: world-space offset applied CUMULATIVELY per copy.\n                 e.g. [4, 0, 0] with count=5 places copies at +4m, +8m,\n                 +12m, +16m, +20m from the source. Default [0, 0, 0].\n\nrotation_offset: Euler angle offset applied cumulatively per copy.\n                 e.g. [0, 45, 0] with count=4 gives 45°, 90°, 135°, 180°\n                 Y-rotation offset. Default [0, 0, 0].\n\nparent_path:     parent for all duplicates. Uses each source's own parent\n                 if omitted.\n\nname_suffix:     string appended to the source name for each copy, e.g.\n                 \"_Mirror\" → SourceName_Mirror.\n                 If omitted: _Copy, _Copy_2, _Copy_3, ...\n\nEXAMPLES:\n  # Line up 5 lamp posts at 4m intervals along Z\n  duplicate_objects(\n      object_paths=[\"/Village/LampPost_A\"],\n      count=5,\n      position_offset=[0, 0, 4]\n  )\n\n  # Make 3 copies of a stall in a square\n  duplicate_objects(\n      object_paths=[\"/Village/MarketStall_Template\"],\n      count=3,\n      position_offset=[6, 0, 0],\n      parent_path=\"/Village/Stalls\"\n  )\n\nReturns: { created_count, paths[], warnings[] }",
+      "input_schema": {
+        "properties": {
+          "object_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "count": {
+            "default": 1,
+            "type": "integer"
+          },
+          "position_offset": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "rotation_offset": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "parent_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "name_suffix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "object_paths"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/objects/duplicate"
+    },
+    {
+      "name": "snap_to_surface",
+      "summary": "Raycasts from each object's position and moves it to the hit surface.",
+      "description": "Raycasts from each object's position and moves it to the hit surface.\n\nThis fixes the most common dressing error: objects floating above the\nground or sinking into a slope after placement.\n\nobject_paths:    objects to snap (accepts one or many)\n\ncast_direction:  [x, y, z] direction vector for the raycast.\n                 Default [0, -1, 0] (straight down onto the terrain/floor).\n                 Use [0, 1, 0] to snap to a ceiling, or a custom direction\n                 for wall snapping.\n\nmax_distance:    how far to cast in metres (default 100)\n\nsurface_offset:  gap to leave above the hit surface in metres (default 0).\n                 Use a small positive value (e.g. 0.01) if objects are\n                 sinking into the surface due to pivot placement.\n\nalign_to_normal: rotate the object so its up-axis matches the surface\n                 normal (default false). Useful for rocks and organic props\n                 on slopes. Keep false for furniture and buildings.\n\nlayer_mask:      Unity layer bitmask to restrict which surfaces are hit.\n                 Null = all layers (default). Use e.g. 1 << 8 to hit only\n                 the Terrain layer.\n\nEXAMPLES:\n  # Snap a row of barrels to the ground after placement\n  snap_to_surface([\"/Village/Barrel_01\", \"/Village/Barrel_02\"])\n\n  # Snap rocks to a slope and tilt them to match the normal\n  snap_to_surface(rock_paths, align_to_normal=True)\n\n  # Snap props with a 2cm clearance (pivot is at centre, not base)\n  snap_to_surface(paths, surface_offset=0.02)\n\nReturns: { snapped_count, skipped: [{ path, reason }] }",
+      "input_schema": {
+        "properties": {
+          "object_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "cast_direction": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "max_distance": {
+            "default": 100.0,
+            "type": "number"
+          },
+          "surface_offset": {
+            "default": 0.0,
+            "type": "number"
+          },
+          "align_to_normal": {
+            "default": false,
+            "type": "boolean"
+          },
+          "layer_mask": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "object_paths"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/placement/snap_to_surface"
+    },
+    {
+      "name": "align_and_distribute",
+      "summary": "Repositions a set of objects relative to each other using one of four modes.",
+      "description": "Repositions a set of objects relative to each other using one of four modes.\n\n── MODES ────────────────────────────────────────────────────────────────\n\ndistribute_between\n  Evenly spaces N objects in a straight line between two world-space\n  points. If face_direction=True (default), each object is rotated to\n  face along the line.\n\n  Required: start_point=[x,y,z], end_point=[x,y,z]\n  Optional: face_direction (default true)\n\n  EXAMPLE — 6 fence posts between two corners:\n    align_and_distribute(\n        fence_post_paths, \"distribute_between\",\n        start_point=[10,0,0], end_point=[10,0,20],\n        face_direction=True\n    )\n\nalign_to_axis\n  Shifts all objects so a specified edge of their bounding box aligns\n  to a given axis value. Use this to level a row of crates to the\n  same Y height, or flush a line of objects against a wall.\n\n  Required: axis (\"x\"|\"y\"|\"z\"), value (float)\n  Optional: use_pivot (\"min\"|\"center\"|\"max\", default \"center\")\n\n  EXAMPLE — level all object bottoms to Y=0:\n    align_and_distribute(\n        crate_paths, \"align_to_axis\",\n        axis=\"y\", value=0.0, use_pivot=\"min\"\n    )\n\nstack\n  Stacks objects on top of each other along the stack_axis, using each\n  object's bounds to determine height so the stack doesn't float or clip.\n\n  Optional: stack_axis (\"x\"|\"y\"|\"z\", default \"y\"),\n            base_position [x,y,z] (default: first object's current position)\n\n  EXAMPLE — stack three crates:\n    align_and_distribute(\n        [crate_bottom, crate_mid, crate_top], \"stack\",\n        stack_axis=\"y\", base_position=[5, 0, 5]\n    )\n\ncircle\n  Evenly distributes objects around a horizontal circle. If\n  facing_outward=True (default), each object faces away from the centre.\n\n  Required: center=[x,y,z], radius (float)\n  Optional: facing_outward (default true), start_angle_degrees (default 0)\n\n  EXAMPLE — 8 torches around a ritual circle:\n    align_and_distribute(\n        torch_paths, \"circle\",\n        center=[0, 0, 0], radius=5.0,\n        facing_outward=False\n    )\n\n── RETURNS ──────────────────────────────────────────────────────────────\n{ repositioned_count, warnings[] }",
+      "input_schema": {
+        "properties": {
+          "object_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "start_point": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "end_point": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "face_direction": {
+            "default": true,
+            "type": "boolean"
+          },
+          "axis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "use_pivot": {
+            "default": "center",
+            "type": "string"
+          },
+          "stack_axis": {
+            "default": "y",
+            "type": "string"
+          },
+          "base_position": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "center": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "radius": {
+            "default": 0.0,
+            "type": "number"
+          },
+          "facing_outward": {
+            "default": true,
+            "type": "boolean"
+          },
+          "start_angle_degrees": {
+            "default": 0.0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "object_paths",
+          "mode"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/placement/align_and_distribute"
+    },
+    {
+      "name": "randomize_transforms",
+      "summary": "Applies bounded random offsets to position, rotation, and/or scale on a\nset of objects.",
+      "description": "Applies bounded random offsets to position, rotation, and/or scale on a\nset of objects.\n\nThis is the difference between dressing that looks placed by a computer\nand dressing that looks like it was actually used. A row of identical barrels\nwith ±15° Y rotation and ±10% scale variation reads as lived-in; without it,\nit reads as a prefab row.\n\nobject_paths:   objects to vary (at least one of the range params required)\n\nseed:           integer seed for the random generator. If omitted, a random\n                seed is chosen and returned in the response so you can\n                reproduce or describe the result later.\n\nposition_range: [x, y, z] max offset per axis (applied symmetrically ±).\n                e.g. [0.3, 0, 0.3] shuffles XZ by up to ±30cm, no Y change.\n\nrotation_range: [x, y, z] max rotation offset in degrees per axis.\n                e.g. [0, 180, 0]  — full random Y (good for crates, rocks)\n                e.g. [5, 180, 5]  — slight XZ tilt plus full Y (good for rocks)\n                e.g. [0, 15, 0]   — subtle ±15° Y (good for furniture)\n\nscale_range:    [min, max] uniform scale multiplier applied to each object\n                independently. e.g. [0.85, 1.15] gives ±15% size variation.\n                Applied as a multiplier on top of the current local scale.\n\nsnap_after:     if True, each object is raycasted downward and snapped to\n                the surface below after randomization. Useful after adding\n                position_range that shifts objects off the ground.\n\nEXAMPLES:\n  # Natural variation for a row of barrels\n  randomize_transforms(\n      barrel_paths,\n      rotation_range=[0, 180, 0],\n      scale_range=[0.9, 1.1]\n  )\n\n  # Rock scatter with tilt, full rotation, and size variation\n  randomize_transforms(\n      rock_paths,\n      rotation_range=[15, 180, 15],\n      scale_range=[0.6, 1.4],\n      snap_after=True\n  )\n\n  # Subtle shuffle for market stall props (preserves ground contact)\n  randomize_transforms(\n      stall_paths,\n      position_range=[0.2, 0, 0.2],\n      rotation_range=[0, 20, 0],\n      snap_after=True\n  )\n\nReturns: { randomized_count, seed_used, warnings[] }\nseed_used is the seed that was actually applied — record it if you want\nto reproduce this exact variation later.",
+      "input_schema": {
+        "properties": {
+          "object_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "position_range": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "rotation_range": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "scale_range": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "snap_after": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "object_paths"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/placement/randomize_transforms"
+    },
+    {
+      "name": "group_objects",
+      "summary": "Creates a new empty GameObject, positions it at the group pivot, and\nreparents all specified objects under it. The programmatic equivalent of\nselecting a set of objects and pressing Ctrl+G in the hierarchy.",
+      "description": "Creates a new empty GameObject, positions it at the group pivot, and\nreparents all specified objects under it. The programmatic equivalent of\nselecting a set of objects and pressing Ctrl+G in the hierarchy.\n\nAfter a dress_area pass or a scatter run, calling group_objects keeps the\nhierarchy navigable and makes the entire dressed location easy to select,\nmove, or disable as a unit.\n\nobject_paths: objects to group\n\ngroup_name:   name for the new container, e.g. \"MarketStall_NE_Clutter\",\n              \"RitualCircle_Torches\", \"BanditCamp_Tent_A\"\n\nparent_path:  where to create the container in the hierarchy.\n              If omitted, uses the common ancestor of the grouped objects\n              (or the scene root if they have none).\n\npivot:        where to place the container's origin:\n              \"center\"       — centroid of all grouped objects (default)\n              \"first\"        — position of the first object in the list\n              \"world_origin\" — (0, 0, 0)\n\ntag:          optional tag for the container object\n\nlayer:        optional layer for the container object\n\nEXAMPLES:\n  # Organise the output of a dress_area call\n  group_objects(\n      object_paths=placed_paths,\n      group_name=\"MarketStall_NE\",\n      parent_path=\"/Village/Dressing\"\n  )\n\n  # Group ritual torches with a shared tag\n  group_objects(\n      torch_paths,\n      group_name=\"RitualCircle\",\n      pivot=\"center\",\n      tag=\"RitualProp\"\n  )\n\nReturns: { container_path, grouped_count, warnings[] }\ncontainer_path is the hierarchy path of the newly created container — use\nit in subsequent reparent_objects or set_object_metadata calls.",
+      "input_schema": {
+        "properties": {
+          "object_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "group_name": {
+            "type": "string"
+          },
+          "parent_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "pivot": {
+            "default": "center",
+            "type": "string"
+          },
+          "tag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "object_paths",
+          "group_name"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/placement/group_objects"
+    },
+    {
+      "name": "create_trigger_volume",
+      "summary": "Creates a complete trigger GameObject in one call: a named empty object\nwith an isTrigger collider, optional tag, optional layer, and an optional\nMonoBehaviour script with pre-configured properties.",
+      "description": "Creates a complete trigger GameObject in one call: a named empty object\nwith an isTrigger collider, optional tag, optional layer, and an optional\nMonoBehaviour script with pre-configured properties.\n\nOpen-world games use hundreds of trigger volumes — dialogue triggers, zone\ntransitions, combat arenas, loot proximity detectors, ambient sound regions.\nCurrently setting one up requires ~5 separate tool calls. This does it in one.\n\nname:     GameObject name, e.g. \"DialogueTrigger_Elder\", \"SpawnZone_BanditCamp\"\n\nposition: [x, y, z] world-space centre of the trigger volume\n\nshape:    \"box\"     — BoxCollider (default)\n          \"sphere\"  — SphereCollider\n          \"capsule\" — CapsuleCollider\n\n── SIZE PARAMETERS (pick the right ones for your shape) ─────────────────\n\nFor box:\n  size=[width, height, depth]   e.g. size=[3.0, 2.5, 3.0]\n\nFor sphere:\n  radius=1.5                    OR  size=[1.5]\n\nFor capsule:\n  radius=0.5, height=2.0       OR  size=[0.5, 2.0]\n\nIf size/radius/height are all omitted, sensible defaults are used\n(1×1×1 box, 0.5m sphere radius, 0.5r×2h capsule).\n\n── IDENTITY ─────────────────────────────────────────────────────────────\n\ntag:    Unity tag name. Must already exist in Project Settings → Tags.\n        e.g. \"DialogueTrigger\", \"CombatZone\", \"QuestTrigger\"\n\nlayer:  Unity layer name, e.g. \"Triggers\", \"Default\"\n\n── SCRIPT COMPONENT ─────────────────────────────────────────────────────\n\nscript_component:   type_name of a MonoBehaviour to add, from\n                    get_component_catalog. e.g. \"DialogueTrigger\",\n                    \"QuestTrigger\", \"SpawnZone\"\n\nscript_properties:  list of { \"property_path\": \"...\", \"value\": ... }\n                    to set on the added script. Same format as\n                    add_component_to_object.\n                    Supported types: float, int, bool, string, enum.\n                    For Vector3/Color/ObjectReference use set_object_properties\n                    on the returned object_path afterward.\n\nEXAMPLES:\n  # Simple dialogue trigger box\n  create_trigger_volume(\n      name=\"DialogueTrigger_Elder\",\n      shape=\"box\",\n      position=[45.0, 1.0, 22.0],\n      size=[3.0, 2.5, 3.0],\n      tag=\"DialogueTrigger\",\n      layer=\"Triggers\",\n      script_component=\"DialogueTrigger\",\n      script_properties=[\n          {\"property_path\": \"dialogueId\",   \"value\": \"elder_intro\"},\n          {\"property_path\": \"triggerOnce\",  \"value\": True}\n      ],\n      parent_path=\"/World/Triggers\"\n  )\n\n  # Sphere-shaped spawn zone, no script\n  create_trigger_volume(\n      name=\"SpawnZone_Bandits\",\n      shape=\"sphere\",\n      position=[100.0, 0.0, 50.0],\n      radius=8.0,\n      tag=\"SpawnZone\",\n      layer=\"Triggers\"\n  )\n\nReturns: {\n  object_path,      ← use this in set_object_properties for complex script fields\n  shape,\n  effective_size,   ← [w,h,d] for box, [r] for sphere, [r,h] for capsule\n  tag,\n  script_added,     ← null if no script, component name if added\n  warnings[]\n}",
+      "input_schema": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "position": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "shape": {
+            "default": "box",
+            "type": "string"
+          },
+          "rotation": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "size": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "radius": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "tag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "layer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "script_component": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "script_properties": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "parent_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "name",
+          "position"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/placement/create_trigger_volume"
+    },
+    {
+      "name": "apply_material",
+      "summary": "Assigns a material to the MeshRenderer of one or more scene objects.",
+      "description": "Assigns a material to the MeshRenderer of one or more scene objects.\n\nExactly one of material_name, material_path, or material_tag must be\nprovided. For visual variety across a set of identical props, use\nmaterial_tag + random_from_tag=True.\n\nobject_paths:   objects to modify (must have MeshRenderer components)\n\n── MATERIAL LOOKUP (use exactly one) ────────────────────────────────────\n\nmaterial_name:  exact asset name in the project, e.g. \"Wood_Dark_Worn\".\n                Matches by name == comparison (case-sensitive).\n\nmaterial_path:  full asset database path,\n                e.g. \"Assets/Materials/Props/Wood_Dark_Worn.mat\"\n                Use this when multiple materials share the same name.\n\nmaterial_tag:   case-insensitive name-contains search across all project\n                materials. e.g. \"wood\" finds Wood_Dark, Wood_Pale_Old,\n                BrokenWood_Planks, etc.\n                Combined with random_from_tag=True this assigns a different\n                material from the matching pool to each object.\n\n── OPTIONS ───────────────────────────────────────────────────────────────\n\nrandom_from_tag:  when True and multiple materials match material_tag,\n                  each object gets a independently-chosen material from\n                  the pool rather than all getting the same one.\n                  Ignored when using material_name or material_path\n                  (single candidate by definition). Default false.\n\nmaterial_slot:    which MeshRenderer material index to replace.\n                  Default 0 (the primary material). Use 1, 2, etc. for\n                  multi-material meshes (e.g. a building with separate\n                  wall and roof materials).\n\nEXAMPLES:\n  # Same material on all crates\n  apply_material(\n      object_paths=crate_paths,\n      material_name=\"Wood_Dark_Worn\"\n  )\n\n  # Different wood variant on each barrel (visual variety)\n  apply_material(\n      object_paths=barrel_paths,\n      material_tag=\"wood\",\n      random_from_tag=True\n  )\n\n  # Replace only the roof material (slot 1) on a building\n  apply_material(\n      object_paths=[\"/Village/Barn\"],\n      material_name=\"Thatch_Old\",\n      material_slot=1\n  )\n\nReturns: {\n  applied_count,\n  assignments: [{ path, material }],   ← which material went on which object\n  warnings[]\n}",
+      "input_schema": {
+        "properties": {
+          "object_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "material_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "material_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "material_tag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "random_from_tag": {
+            "default": false,
+            "type": "boolean"
+          },
+          "material_slot": {
+            "default": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "object_paths"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/placement/apply_material"
+    },
+    {
+      "name": "dress_area",
+      "summary": "Fill a circular area with prefabs chosen to match a plain-language intent\n(e.g. \"medieval market stall with crates and barrels\"), submitted as a\nproposal for review: nothing is placed until execute_proposal.",
+      "description": "Fill a circular area with prefabs chosen to match a plain-language intent\n(e.g. \"medieval market stall with crates and barrels\"), submitted as a\nproposal for review: nothing is placed until execute_proposal.\n\nGiven a world-space centre, a radius, and a natural-language description\nof what you want in the area, dress_area:\n  1. Scores every prefab in the catalog against your intent\n  2. Generates well-distributed candidate positions (Poisson disk)\n  3. Discards positions that overlap existing scene objects\n  4. Raycasts each surviving position to the nearest surface below\n  5. Assigns a prefab to each position (weighted by relevance)\n  6. Submits everything as a proposal to the Operation Queue for review\n\nNothing is placed until you call execute_proposal with the returned\nproposal_id. The Operation Queue window shows every proposed item with\nits position and prefab name; you can approve, reject, or edit individual\nitems before executing.\n\n── PARAMETERS ───────────────────────────────────────────────────────────\n\ncenter:   [x, y, z] world-space centre of the area to fill\n\nradius:   radius of the circular area in metres\n\nintent:   natural-language description of what you want.\n          Words are matched against PrefabMetadata tags, categories,\n          and display names — the more specific the better.\n\n          Good intents:\n            \"neglected medieval market stall with crates and barrels\"\n            \"dungeon corridor with wall sconces and debris on the floor\"\n            \"forest clearing with fallen logs, mushrooms, and rocks\"\n            \"bandit camp cooking area with firepit props and sacks\"\n\n          The scoring is tag-overlap based. If a prefab has tags\n          [\"crate\", \"wooden\", \"medieval\"] and your intent contains\n          \"medieval crates\", that prefab scores 2 and is much more\n          likely to be selected than one with no matching tags.\n\ndensity:  \"sparse\"  — ~5-15 objects, 2m min spacing\n          \"medium\"  — ~10-25 objects, 1.2m min spacing (default)\n          \"dense\"   — ~20-40 objects, 0.7m min spacing\n\nexclude_tags:  prefab tags to never use, e.g. [\"futuristic\", \"sci-fi\"]\n\ninclude_tags:  if provided, only prefabs matching at least one of these\n               tags are considered. Useful for narrowing to a specific\n               asset set without relying on intent scoring.\n\nsnap_to_surfaces:  raycast each candidate position downward and land it\n                   on the terrain/floor (default True).\n\navoid_existing:    skip positions that overlap existing scene colliders\n                   within avoidance_radius (default True).\n\navoidance_radius:  minimum clearance from existing objects in metres\n                   (default 0.5m). Reduce to 0.1 for tight spaces.\n\nparent_path:  if provided, each placed prefab gets this parent. Leave\n              null and use group_objects afterward to organise the result.\n\ngroup_name:   name used in the proposal summary, e.g. \"MarketStall_NE\".\n              Defaults to a position-derived name.\n\n── WORKFLOW ─────────────────────────────────────────────────────────────\n\n1. dress_area(...)             → returns proposal_id + summary\n2. [Review Operation Queue]    → approve/reject individual items\n3. execute_proposal(proposal_id)\n4. snap_to_surface(placed_paths)    ← optional cleanup pass\n5. randomize_transforms(placed_paths, rotation_range=[0,180,0])\n6. set_object_metadata(placed_paths, tag=\"Prop\", static_flags=[\"LightmapStatic\"])\n7. group_objects(placed_paths, group_name=\"MarketStall_NE_Clutter\")\n\n── EXAMPLES ─────────────────────────────────────────────────────────────\n\n# Market stall clutter, 8m radius\ndress_area(\n    center=[45.0, 0.0, 22.0],\n    radius=8.0,\n    intent=\"busy medieval market stall crates barrels sacks hanging lantern\",\n    density=\"medium\",\n    include_tags=[\"medieval\", \"prop\"],\n    group_name=\"MarketStall_NE\"\n)\n\n# Sparse dungeon entrance dressing\ndress_area(\n    center=[0.0, 0.0, 0.0],\n    radius=12.0,\n    intent=\"dungeon entrance rocks rubble bones skulls torches\",\n    density=\"sparse\",\n    exclude_tags=[\"village\", \"urban\"]\n)\n\n# Dense forest floor coverage\ndress_area(\n    center=[100.0, 0.0, 50.0],\n    radius=15.0,\n    intent=\"forest floor ferns mushrooms fallen logs rocks\",\n    density=\"dense\",\n    snap_to_surfaces=True\n)\n\n── RETURNS ──────────────────────────────────────────────────────────────\n\n{\n  \"proposal_id\":     \"prop_a3f2b1c4\",  ← pass to execute_proposal\n  \"summary\":         \"14 props proposed for ...\",\n  \"proposed_count\":  14,\n  \"discarded_count\": 3,  ← positions too close to existing objects\n  \"group_name\":      \"MarketStall_NE\",\n  \"warnings\":        [...]\n}\n\nThe summary breaks down the proposal by prefab type so you can see\nat a glance what was selected before opening the Operation Queue.",
+      "input_schema": {
+        "properties": {
+          "center": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "radius": {
+            "type": "number"
+          },
+          "intent": {
+            "type": "string"
+          },
+          "density": {
+            "default": "medium",
+            "type": "string"
+          },
+          "exclude_tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "include_tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "snap_to_surfaces": {
+            "default": true,
+            "type": "boolean"
+          },
+          "avoid_existing": {
+            "default": true,
+            "type": "boolean"
+          },
+          "avoidance_radius": {
+            "default": 0.5,
+            "type": "number"
+          },
+          "parent_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "group_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "center",
+          "radius",
+          "intent"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/placement/dress_area"
+    },
+    {
+      "name": "query_terrain",
+      "summary": "Sample terrain height, surface normal, slope, and layer weights at one or more\nworld-space positions.",
+      "description": "Sample terrain height, surface normal, slope, and layer weights at one or more\nworld-space positions.\n\nCALL THIS BEFORE PLACING OBJECTS to validate that positions are suitable:\n  - slope_degrees > 30–35 typically means too steep for buildings and fences\n  - layer_weights shows what texture is painted there (grass, road, water, etc.)\n  - surface_height gives the actual Y coordinate to snap objects to terrain level\n\nPositions outside all active terrain tiles return error=\"NO_TERRAIN\" with null\nfields. The rest of the batch succeeds normally — partial terrain coverage is fine.\n\nParameters\n----------\npositions : list of [x, y, z]\n    World-space positions to sample. The Y component is ignored for sampling\n    but echoed back in the response. Pass all candidate positions in one call.\ninclude_layer_weights : bool\n    Whether to return per-layer alpha weights (default True). Set False when\n    you only need height/normal to reduce overhead on high-resolution terrain.\n\nReturns per-position\n--------------------\nsurface_height : float  — Y in world space at that point\nnormal         : [x,y,z] — interpolated surface normal (unit vector)\nslope_degrees  : float  — steepness in degrees (0 = flat, 90 = cliff)\nterrain_name   : str    — name of the Terrain tile covering this position\nlayer_weights  : [{layer_name, weight}] — terrain layer alpha values (sum ≈ 1.0)\nerror          : str | null — \"NO_TERRAIN\" if no tile covers the position",
+      "input_schema": {
+        "properties": {
+          "positions": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "include_layer_weights": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "positions"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/world/query_terrain"
+    },
+    {
+      "name": "bake_navmesh",
+      "summary": "Build one or more NavMeshSurface components in the active scene.",
+      "description": "Build one or more NavMeshSurface components in the active scene.\n\nRequires the Unity AI Navigation package (com.unity.ai.navigation).\nReturns PACKAGE_NOT_INSTALLED if the package is missing.\n\nCall this at the end of any operation that adds, moves, or removes objects\nwith geometry that affects walkable surfaces — including dress_area,\nscatter_prefabs, place_prefab, and set_navmesh_area.\n\nSelection priority (first matching rule wins):\n  1. surface_paths — bake the specific surfaces on those hierarchy paths\n  2. agent_type_name — bake all surfaces for that agent type (e.g. \"Humanoid\")\n  3. all=True — bake every NavMeshSurface in the active scene\n  4. default — bake only the first surface found\n\nFor most open-world dressing workflows, all=True is the correct choice.\nUse surface_paths or agent_type_name only when you know which tile(s) changed.\n\nParameters\n----------\nsurface_paths   : list of hierarchy paths to NavMeshSurface GameObjects\nall             : bake every surface in the scene (default False)\nagent_type_name : only bake surfaces matching this agent type name",
+      "input_schema": {
+        "properties": {
+          "surface_paths": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "all": {
+            "default": false,
+            "type": "boolean"
+          },
+          "agent_type_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/world/bake_navmesh"
+    },
+    {
+      "name": "set_navmesh_area",
+      "summary": "Assign a NavMesh area type to objects (via NavMeshModifier component) or create\na floating volumetric override (via NavMeshModifierVolume).",
+      "description": "Assign a NavMesh area type to objects (via NavMeshModifier component) or create\na floating volumetric override (via NavMeshModifierVolume).\n\nRequires the Unity AI Navigation package (com.unity.ai.navigation).\n\narea_name must match a name in Project Settings > Navigation (or Navigation > Areas\nin the AI Navigation window). Common built-in names: \"Walkable\", \"Not Walkable\",\n\"Jump\". Custom names (e.g. \"Water\", \"Road\") are defined per-project.\n\nOn unknown area_name, the response includes a 'warnings' list of all available\nnames — check that to correct the call.\n\nAlways call bake_navmesh after to apply the changes to the NavMesh data.\n\nParameters\n----------\narea_name     : NavMesh area name (case-sensitive, must match project settings)\nobject_paths  : hierarchy paths of existing objects to add NavMeshModifier to\noverride_area : whether the modifier overrides child hierarchy areas (default True)\nvolume        : dict to create a NavMeshModifierVolume instead of a component.\n                Shape: {\n                  \"position\": [x, y, z],   # world-space centre\n                  \"size\":     [w, h, d],    # extents in world units\n                  \"rotation\": [x, y, z],   # optional Euler angles\n                  \"name\":     \"...\",        # optional GameObject name\n                  \"parent_path\": \"...\"      # optional hierarchy parent\n                }\n\nExample — mark a water plane and block a courtyard:\n    set_navmesh_area(\"Water\",        object_paths=[\"/World/WaterPlane\"])\n    set_navmesh_area(\"Not Walkable\", volume={\"position\":[0,1,0], \"size\":[20,4,20]})\n    bake_navmesh(all=True)",
+      "input_schema": {
+        "properties": {
+          "area_name": {
+            "type": "string"
+          },
+          "object_paths": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "override_area": {
+            "default": true,
+            "type": "boolean"
+          },
+          "volume": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "area_name"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/world/set_navmesh_area"
+    },
+    {
+      "name": "get_loaded_scenes",
+      "summary": "List all scenes currently loaded in the Unity Editor.",
+      "description": "List all scenes currently loaded in the Unity Editor.\n\nReturns name, asset path, active status, and dirty flag for each.\nUse this before manage_scene to understand the current state:\n  - is_active: True for the scene that receives new objects by default\n  - is_dirty:  True if the scene has unsaved changes\n\nIn a streaming open-world setup, you typically have one or two terrain tile\nscenes loaded additively alongside the base scene. This call shows you exactly\nwhat is open before you load, unload, or move objects between scenes.",
+      "input_schema": {
+        "properties": {},
+        "type": "object"
+      },
+      "method": "GET",
+      "path": "/scene/scenes"
+    },
+    {
+      "name": "manage_scene",
+      "summary": "Multi-scene operations in the editor: list, load (additively), unload or\ncreate scenes, and move objects from one loaded scene to another.",
+      "description": "Multi-scene operations in the editor: list, load (additively), unload or\ncreate scenes, and move objects from one loaded scene to another.\n\nOperations\n----------\n\"list\"\n    Same as get_loaded_scenes — returns all loaded scenes.\n    No additional parameters required.\n\n\"load\"\n    Load a scene additively alongside the current ones.\n    scene_path  : required, e.g. \"Assets/Scenes/Village_NW.unity\"\n    set_active  : optional, make it the active scene (default False)\n\n\"unload\"\n    Remove an additively-loaded scene from the editor.\n    scene_path  : required — asset path or scene name\n    Fails if this is the only loaded scene.\n\n\"move_objects\"\n    Move one or more scene objects from their current scene into another.\n    object_paths      : required — list of hierarchy paths to move\n    target_scene_name : required — name of the destination scene (must be loaded)\n    Objects with parents NOT in the move list are detached first (a warning is\n    returned for each detachment).\n\n\"create\"\n    Create a new empty scene asset and load it additively.\n    scene_path        : required, e.g. \"Assets/Scenes/Village_SE.unity\"\n    set_active        : optional, make it the active scene (default False)\n    save_after_create : optional, write the .unity file immediately (default True)\n\nCommon workflow — fix misplaced objects across a tile boundary:\n    get_loaded_scenes()\n    manage_scene(\"load\", scene_path=\"Assets/Scenes/Village_NW.unity\")\n    find_objects(name_pattern=\"Barrel*\", near_position=[...])\n    manage_scene(\"move_objects\",\n                 object_paths=[...],\n                 target_scene_name=\"Village_NE\")\n    manage_scene(\"unload\", scene_path=\"Assets/Scenes/Village_NW.unity\")",
+      "input_schema": {
+        "properties": {
+          "operation": {
+            "type": "string"
+          },
+          "scene_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "set_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "object_paths": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "target_scene_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "save_after_create": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "operation"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/scene/manage"
+    },
+    {
+      "name": "validate_scene",
+      "summary": "Run diagnostic checks across the active scene and return a structured issue report.",
+      "description": "Run diagnostic checks across the active scene and return a structured issue report.\n\nEach check returns a list of object hierarchy paths with detail strings. The agent\ncan present this report conversationally and use other tools (set_object_metadata,\nsnap_to_surface, etc.) to fix the flagged issues.\n\nAvailable check IDs\n-------------------\n\"missing_scripts\"\n    error — GameObjects with missing MonoBehaviour script references.\n    Common after a script rename, refactor, or package removal.\n\n\"missing_materials\"\n    error — MeshRenderers with one or more null material slots.\n    Common after a material asset is deleted.\n\n\"untagged_triggers\"\n    warning — Trigger colliders whose GameObject has tag \"Untagged\".\n    Almost always a forgotten configuration step.\n\n\"duplicate_names\"\n    warning — Siblings with identical names under the same parent.\n    Breaks FindByPath and causes confusing hierarchy navigation.\n\n\"meshrenderer_no_collider\"\n    info — MeshRenderers with no Collider on the same object.\n    Opt-in: generates false positives for decorative-only objects.\n\n\"large_light_range\"\n    info — Point/Spot lights with range > light_range_threshold.\n    Catches accidentally large values left from tweaking sessions.\n\n\"floating_objects\"\n    info — Renderable objects with no surface detected within\n    floating_ray_distance below their pivot. Catches props left\n    floating after terrain was sculpted beneath them.\n    Opt-in: generates false positives for intentionally elevated objects.\n\nParameters\n----------\nchecks                : list of check IDs to run. None = run all checks.\nscope_path            : hierarchy path to restrict the scan. None = full active scene.\nmax_results_per_check : cap on issues returned per check (default 50).\nlight_range_threshold : range in metres for the large_light_range check (default 100.0).\nfloating_ray_distance : downward ray distance in metres for floating_objects (default 0.5).\n\nReturns\n-------\n{\n  total_issues : int,\n  checks_run   : [str],\n  results      : [\n    {\n      check_id    : str,\n      severity    : \"error\" | \"warning\" | \"info\",\n      description : str,\n      count       : int,\n      issues      : [{ path: str, detail: str }]\n    }\n  ]\n}\n\nWorkflow example\n----------------\n# End-of-session quality pass\nvalidate_scene(checks=[\"missing_scripts\", \"missing_materials\", \"untagged_triggers\"])\n# → agent presents issues, then fixes tags with set_object_metadata and\n#   snaps floating props with snap_to_surface",
+      "input_schema": {
+        "properties": {
+          "checks": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "scope_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "max_results_per_check": {
+            "default": 50,
+            "type": "integer"
+          },
+          "light_range_threshold": {
+            "default": 100.0,
+            "type": "number"
+          },
+          "floating_ray_distance": {
+            "default": 0.5,
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/scene/validate"
+    },
+    {
+      "name": "create_audio_zone",
+      "summary": "Create an audio zone at a world-space position.",
+      "description": "Create an audio zone at a world-space position.\n\nzone_type=\"reverb_zone\"\n    Creates a GameObject with an AudioReverbZone component.\n    Shapes the acoustic environment — adds echo, dampening, and spatial character\n    to all audio sources within range. No AudioClip required.\n    Use for caves, interiors, underwater, large outdoor spaces.\n\n    preset is required. Available presets:\n      \"cave\"        → Unity Cave reverb\n      \"forest\"      → Forest (muffled, organic)\n      \"dungeon\"     → Stone Corridor (stone, enclosed)\n      \"interior\"    → Room (wooden/plaster interior)\n      \"exterior\"    → Plain (open outdoor)\n      \"underwater\"  → Underwater\n      \"cathedral\"   → Concert Hall (large resonant space)\n      \"alley\"       → Alley (narrow urban)\n\nzone_type=\"ambient_source\"\n    Creates a fully-3D AudioSource with linear rolloff and a SphereCollider trigger\n    (trigger-only, for scene-view visualisation — no physics effect).\n    Use for streams, campfires, wind, distant machinery.\n\n    audio_clip_path is recommended. If omitted, the source is created without a clip\n    and a warning is returned — assign a clip manually in the Inspector.\n\nParameters\n----------\nzone_type       : \"reverb_zone\" or \"ambient_source\"\nposition        : [x, y, z] world-space centre\nmin_distance    : inner radius in metres — full effect / direct sound (default 1.0)\nmax_distance    : outer radius in metres — effect fades to zero (default 10.0)\npreset          : reverb preset name (required for reverb_zone)\naudio_clip_path : AssetDatabase path to AudioClip (for ambient_source)\nvolume          : 0.0–1.0 playback volume for ambient_source (default 1.0)\nloop            : loop playback for ambient_source (default True)\nplay_on_awake   : auto-play on scene start for ambient_source (default True)\nparent_path     : optional hierarchy parent path\nname            : optional GameObject name\n\nBiome transition example\n------------------------\n# Dungeon entrance — acoustic + ambient in two calls\ncreate_audio_zone(\"reverb_zone\", [0,2,0],\n                  preset=\"dungeon\", min_distance=3.0, max_distance=15.0)\ncreate_audio_zone(\"ambient_source\", [0,2,0],\n                  audio_clip_path=\"Assets/Audio/Ambient/DungeonDrips.wav\",\n                  min_distance=2.0, max_distance=12.0, volume=0.6)",
+      "input_schema": {
+        "properties": {
+          "zone_type": {
+            "type": "string"
+          },
+          "position": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "min_distance": {
+            "default": 1.0,
+            "type": "number"
+          },
+          "max_distance": {
+            "default": 10.0,
+            "type": "number"
+          },
+          "preset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "audio_clip_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "volume": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "loop": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "play_on_awake": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "parent_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "zone_type",
+          "position"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/world/create_audio_zone"
+    },
+    {
+      "name": "create_postprocessing_volume",
+      "summary": "Create a URP Volume GameObject with a VolumeProfile containing the specified\npost-processing overrides.",
+      "description": "Create a URP Volume GameObject with a VolumeProfile containing the specified\npost-processing overrides.\n\nRequires the Unity AI Navigation package — returns PACKAGE_NOT_INSTALLED if\ncom.unity.render-pipelines.universal is absent.\n\nEffect names\n------------\nUse the exact C# class name from the UnityEngine.Rendering.Universal namespace.\nNames are matched case-insensitively. Common ones:\n\n  Bloom              — intensity, threshold, scatter, tint ([r,g,b,a])\n  ColorAdjustments   — postExposure, contrast, colorFilter, hueShift, saturation\n  DepthOfField       — mode (\"Off\"|\"Gaussian\"|\"Bokeh\"), focusDistance, aperture,\n                       focalLength, gaussianStart, gaussianEnd\n  FilmGrain          — type (\"Thin1\"|\"Medium1\"|...|\"Custom\"), intensity, response\n  LensDistortion     — intensity, xMultiplier, yMultiplier, center ([x,y]), scale\n  MotionBlur         — mode (\"CameraVelocity\"|\"ObjectVelocity\"), quality, intensity\n  ShadowsMidtonesHighlights — shadows/midtones/highlights ([r,g,b,a])\n  Tonemapping        — mode (\"None\"|\"Neutral\"|\"ACES\"|\"Custom\")\n  Vignette           — color ([r,g,b,a]), center ([x,y]), intensity, smoothness\n  WhiteBalance       — temperature, tint\n  ChromaticAberration — intensity\n\nProperty types\n--------------\nfloat/int/bool   — pass as JSON number / boolean\nenum             — pass as string (e.g. \"ACES\") or int index\nColor            — pass as [r, g, b] or [r, g, b, a] array (0.0–1.0 range)\nVector2          — pass as [x, y] array\nVector4          — pass as [x, y, z, w] array\n\nParameters\n----------\noverrides      : list of {\"effect\": \"EffectName\", \"properties\": {\"field\": value}}\nprofile_name   : name for new profile asset saved to Assets/Volumes/ (default \"PostProcessVolume\")\nprofile_path   : AssetDatabase path to an existing VolumeProfile to reuse and modify\nposition       : [x, y, z] world-space centre (required for non-global volumes)\nsize           : [w, h, d] box extents for the volume bounds; omit for a point volume\nblend_distance : distance over which the volume fades in, world units (default 10.0)\nis_global      : True = affects entire scene regardless of camera position (default False)\npriority       : override priority — higher wins when volumes overlap (default 0)\nparent_path    : optional hierarchy parent path\nname           : optional GameObject name\n\nResponses\n---------\noverrides_applied : [str] — effect names that were successfully added and configured\noverrides_failed  : [str] — \"EffectName: reason\" for any effect that failed\nwarnings          : [str] — per-property warnings (bad field name, type mismatch)\n\nExample — dungeon entry atmosphere\n------------------------------------\ncreate_postprocessing_volume(\n    profile_name=\"DungeonEntry\",\n    position=[0, 5, 0],\n    size=[20, 10, 20],\n    blend_distance=6.0,\n    priority=1,\n    overrides=[\n        {\"effect\": \"ColorAdjustments\",\n         \"properties\": {\"saturation\": -30.0, \"postExposure\": -0.5}},\n        {\"effect\": \"Bloom\",\n         \"properties\": {\"intensity\": 0.1, \"threshold\": 1.2}},\n        {\"effect\": \"Vignette\",\n         \"properties\": {\"intensity\": 0.4, \"smoothness\": 0.5}},\n    ]\n)\n\nExample — global scene baseline\n---------------------------------\ncreate_postprocessing_volume(\n    profile_name=\"SceneBase\",\n    is_global=True,\n    priority=0,\n    overrides=[\n        {\"effect\": \"Tonemapping\",      \"properties\": {\"mode\": \"ACES\"}},\n        {\"effect\": \"ColorAdjustments\", \"properties\": {\"contrast\": 8.0, \"saturation\": 5.0}},\n        {\"effect\": \"FilmGrain\",        \"properties\": {\"intensity\": 0.12, \"type\": \"Thin1\"}},\n    ]\n)",
+      "input_schema": {
+        "properties": {
+          "overrides": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "profile_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "profile_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "position": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "size": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "blend_distance": {
+            "default": 10.0,
+            "type": "number"
+          },
+          "is_global": {
+            "default": false,
+            "type": "boolean"
+          },
+          "priority": {
+            "default": 0.0,
+            "type": "number"
+          },
+          "parent_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "overrides"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/world/create_postprocessing_volume"
+    },
+    {
+      "name": "create_prefab_metadata",
+      "summary": "Create a PrefabMetadata ScriptableObject asset alongside a prefab.",
+      "description": "Create a PrefabMetadata ScriptableObject asset alongside a prefab.\n\nThe asset is saved as Prefab_Name.metadata.asset in the same directory as\nthe prefab, following the project convention. After creation, MetadataRegistry\nis reloaded so dress_area, resolve_scaffold_markers, and get_prefab_catalog\nimmediately reflect the new metadata.\n\nThe richer the metadata — especially description and tags — the better\nthe AI's placement and scoring decisions will be.\n\nParameters\n----------\nprefab_path         : AssetDatabase path, e.g. \"Assets/Prefabs/Props/Barrel.prefab\"\ntags                : searchable tags, e.g. [\"storage\", \"wooden\", \"breakable\"]\ndescription         : plain-English description including appearance, scale, and\n                      ideal placement context. Be specific — this is read verbatim\n                      by dress_area and resolve_scaffold_markers.\ncategory            : broad category: \"building\", \"prop\", \"vegetation\",\n                      \"light-fixture\", \"terrain\", etc.\ndisplay_name        : human-readable name shown in catalog and responses.\n                      Defaults to the prefab filename if omitted.\ncompatible_with     : tags of other assets this pairs well with\nincompatible_with   : tags this asset clashes with (agent avoids combining these)\nrequires_flat_ground: placement rule — must be placed on a flat surface (default True)\ncan_stack           : multiple instances may be stacked vertically (default False)\nindoor_only         : only valid inside enclosed spaces (default False)\noutdoor_only        : only valid in open outdoor areas (default False)\nminimum_spacing     : minimum distance in metres between instances of this prefab\napproximate_size    : bounding box [width, height, depth] in world units\noverwrite           : replace existing metadata if one already exists (default False)\n\nReturns\n-------\n{ prefab_path, metadata_path, created: true, overwritten: true|null }\n\nWorkflow\n--------\n# After a new prefab art drop:\nget_prefab_catalog(\"Assets/Prefabs/Props/NewDrop\")\n# → lists prefabs with has_metadata: false\ncreate_prefab_metadata(\n    \"Assets/Prefabs/Props/NewDrop/Barrel_Weathered.prefab\",\n    tags=[\"storage\", \"wooden\", \"weathered\", \"breakable\"],\n    description=\"A short weathered oak barrel. Suitable for taverns, docks, and storage yards. Pairs well with crates and rope coils.\",\n    category=\"prop\",\n    requires_flat_ground=True,\n    minimum_spacing=0.3,\n    approximate_size=[0.7, 0.9, 0.7]\n)\n# → metadata created, immediately available to dress_area",
+      "input_schema": {
+        "properties": {
+          "prefab_path": {
+            "type": "string"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "compatible_with": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "incompatible_with": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "requires_flat_ground": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "can_stack": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "indoor_only": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "outdoor_only": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "minimum_spacing": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "approximate_size": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "overwrite": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "prefab_path"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/metadata/create_prefab_metadata"
+    },
+    {
+      "name": "update_prefab_metadata",
+      "summary": "Update specific fields on an existing PrefabMetadata asset.",
+      "description": "Update specific fields on an existing PrefabMetadata asset.\n\nOnly the fields you provide are changed — omitted fields are left exactly\nas they are on the existing asset. MetadataRegistry is reloaded after saving.\n\nUse this to refine metadata iteratively:\n  - Add tags after new context or biome requirements emerge\n  - Improve descriptions as the art style solidifies\n  - Adjust placement rules after testing in-engine\n  - Add compatible_with / incompatible_with entries as relationships become clear\n\nParameters\n----------\nprefab_path  : AssetDatabase path used to locate the existing metadata asset\n(all other parameters): see create_prefab_metadata — null = leave unchanged\n\nReturns\n-------\n{ prefab_path, metadata_path, updated_fields: [\"tags\", \"description\", ...] }\n\nExample — add tags and expand description\n-----------------------------------------\nupdate_prefab_metadata(\n    \"Assets/Prefabs/Props/Barrel_Weathered.prefab\",\n    tags=[\"storage\", \"wooden\", \"weathered\", \"breakable\", \"tavern\", \"dock\"],\n    compatible_with=[\"crate\", \"rope-coil\", \"lantern\"]\n)",
+      "input_schema": {
+        "properties": {
+          "prefab_path": {
+            "type": "string"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "compatible_with": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "incompatible_with": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "requires_flat_ground": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "can_stack": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "indoor_only": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "outdoor_only": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "minimum_spacing": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "approximate_size": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "prefab_path"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/metadata/update_prefab_metadata"
+    },
+    {
+      "name": "update_scene_context",
+      "summary": "Write to the active SceneContext asset — the level design document that\nClaude reads at the start of every session to guide placement decisions.",
+      "description": "Write to the active SceneContext asset — the level design document that\nClaude reads at the start of every session to guide placement decisions.\n\nOnly provided fields are changed. The updated asset is saved to disk immediately\nso get_scene_context reflects the changes in the same session.\n\nTag parameters\n--------------\nactive_tags        : full replacement (overwrites existing list)\nadd_active_tags    : append tags (ignored if active_tags is provided)\nremove_active_tags : remove specific tags (ignored if active_tags is provided)\nexcluded_tags      : full replacement of the excluded list\n\nNotes parameters\n----------------\nnotes        : full replacement of the design notes field\nappend_notes : append to existing notes (ignored if notes is provided);\n               adds a blank line separator before the new text\n\nReturns\n-------\n{ context_path, updated_fields: [\"active_tags\", \"notes\", ...] }\n\nExample — session notes workflow\n---------------------------------\n# At the end of a session, record what was done and what's still needed:\nupdate_scene_context(\n    add_active_tags=[\"ruined\", \"overgrown\"],\n    remove_active_tags=[\"pristine\"],\n    append_notes=\"2024-06-08: Added ruined east wing. \"\n                 \"Avoid intact furniture in Zone3 eastward. \"\n                 \"LOD groups still needed on Townhouse_C and WarehouseA.\"\n)",
+      "input_schema": {
+        "properties": {
+          "level_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "setting": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "architectural_style": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "era": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "active_tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "add_active_tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "remove_active_tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "excluded_tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "append_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/metadata/update_scene_context"
+    },
+    {
+      "name": "get_zone_context",
+      "summary": "Return the SceneContext for a specific scaffold zone.",
+      "description": "Return the SceneContext for a specific scaffold zone.\n\nLooks up the zone name in McpBridgeSettings.zoneContexts. If a matching\nentry exists, returns that zone's dedicated context. If not, falls back\nto the global SceneContext (same as get_scene_context).\n\nUse this when working inside a named scaffold zone that has its own\ndesign identity distinct from the rest of the scene — for example, a\n'Forest_Ruins' zone in a tile that also contains a 'Village_Center' zone.\n\nParameters\n----------\nzone_name : name of the scaffold zone (must match a ScaffoldZone name and\n            a ZoneContextEntry.zoneName in McpBridgeSettings exactly)\n\nReturns\n-------\nSame shape as get_scene_context — level_name, setting, architectural_style,\nera, active_tags, excluded_tags, notes — plus zone_name in the response\nwhen a zone-specific context was found.\n\nWorkflow\n--------\n# Before dressing a zone with its own design identity:\nget_zone_context(\"Zone3_Ruins\")\n# → returns ruined-specific active_tags even if the global context\n#   is set to a broader 'medieval village' setting",
+      "input_schema": {
+        "properties": {
+          "zone_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "zone_name"
+        ],
+        "type": "object"
+      },
+      "method": "GET",
+      "path": "/scene/context"
+    },
+    {
+      "name": "paint_terrain_layer",
+      "summary": "Paint a terrain texture layer at a world position using a circular brush.",
+      "description": "Paint a terrain texture layer at a world position using a circular brush.\n\nAll layer weights are renormalised after painting so the alphamap sums to 1.0\nat every affected pixel — you cannot end up with an invalid terrain.\n\nBest used immediately after executing a dress_area proposal, to paint the\nterrain layer that matches the placed props:\n  - Place rocks and gravel → paint \"RockyGround\" under them\n  - Place trees and undergrowth → paint \"ForestFloor\"\n  - Dress a dirt path with weeds → paint \"DirtPath\" along the centre\n\nParameters\n----------\nposition     : [x, y, z] world-space brush centre. Y is ignored for painting.\nradius       : brush radius in world metres.\nlayer_name   : terrain layer to paint. Must match a layer name on the terrain\n               tile (case-insensitive). If the name is wrong, the error response\n               lists all available layer names.\nopacity      : brush strength 0.0–1.0 (default 0.5). How strongly to paint\n               at the brush centre.\nfalloff      : brush edge falloff.\n               \"smooth\"   — S-curve ease-in/ease-out (default, most natural)\n               \"linear\"   — even fade from centre to edge\n               \"constant\" — full opacity everywhere inside the radius (hard edge)\nblend_mode   : how opacity interacts with existing layer value.\n               \"add\" — increase the layer toward opacity (default, safe for\n                       layering multiple passes)\n               \"set\" — force the layer to exactly opacity at the brush centre,\n                       scaling all others down proportionally\nterrain_name : name of the terrain tile to paint on. Omit to use the tile that\n               covers position (correct for single-terrain scenes and most\n               tiled setups).\n\nReturns\n-------\n{ terrain_name, layer_painted, layer_index, pixels_affected, warnings }\n\nExample — paint after dressing a forest clearing\n-------------------------------------------------\n# After executing a dress_area proposal for scattered trees and undergrowth:\npaint_terrain_layer([60, 0, 40], radius=18,\n                    layer_name=\"ForestFloor\", opacity=0.7, blend_mode=\"set\")\npaint_terrain_layer([60, 0, 40], radius=22,\n                    layer_name=\"Grass\",       opacity=0.4, blend_mode=\"add\")\n# Centre is pure ForestFloor; outer ring blends back to Grass",
+      "input_schema": {
+        "properties": {
+          "position": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "radius": {
+            "type": "number"
+          },
+          "layer_name": {
+            "type": "string"
+          },
+          "opacity": {
+            "default": 0.5,
+            "type": "number"
+          },
+          "falloff": {
+            "default": "smooth",
+            "type": "string"
+          },
+          "blend_mode": {
+            "default": "add",
+            "type": "string"
+          },
+          "terrain_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "position",
+          "radius",
+          "layer_name"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/world/paint_terrain_layer"
+    },
+    {
+      "name": "bake_lighting",
+      "summary": "Trigger Unity's progressive lightmapper or clear baked lighting data.",
+      "description": "Trigger Unity's progressive lightmapper or clear baked lighting data.\n\nThe lighting equivalent of bake_navmesh. Call at the end of any session\nthat makes significant geometry or lighting changes — new buildings, moved\nlights, added prop clusters, or changed terrain.\n\nModes\n-----\n\"async\" (default)\n    Triggers a bake and returns immediately with started=true. Monitor\n    progress in Window > Rendering > Lighting. This is the correct mode\n    for most sessions — bakes on large scenes take minutes and should not\n    block the conversation.\n\n\"sync\"\n    Blocks until the bake is complete and returns elapsed_ms. Use only for\n    small scenes or targeted re-bakes where you need to confirm completion\n    before continuing. Will appear to hang Claude for the bake duration.\n\n\"clear\"\n    Deletes all baked lighting data from the scene without re-baking.\n    Useful before a full rework of the lighting setup.\n\nParameters\n----------\nmode                   : \"async\" | \"sync\" | \"clear\" (default \"async\")\nbake_reflection_probes : True = also capture reflection probe snapshots\n                         (sync mode: calls BakeAllReflectionProbesSnapshots\n                          after the main bake; async mode: probes configured\n                          for baked mode are captured automatically)\n\nReturns\n-------\n{ mode, started, completed?, elapsed_ms?, message }\n\nExample — end-of-session bake\n------------------------------\n# After a full dressing session:\nbake_navmesh(all=True)    # NavMesh first — fast\nbake_lighting(mode=\"async\", bake_reflection_probes=True)\n# → both bakes triggered, both monitored in Unity background",
+      "input_schema": {
+        "properties": {
+          "mode": {
+            "default": "async",
+            "type": "string"
+          },
+          "bake_reflection_probes": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/world/bake_lighting"
+    },
+    {
+      "name": "replace_prefab",
+      "summary": "Replace every instance of one prefab with another, preserving each\ninstance's transform, name, and hierarchy parent by default.",
+      "description": "Replace every instance of one prefab with another, preserving each\ninstance's transform, name, and hierarchy parent by default.\n\nAll replacements are grouped under a single named Undo entry\n(\"{old} → {new}\"), so the entire operation can be reversed at once\nwith Cmd+Z in the Editor.\n\nOnly prefab instance roots are matched — children inside a prefab and\nnested variant instances are not replaced individually.\n\nParameters\n----------\nold_prefab_path    : AssetDatabase path of the prefab being replaced\nnew_prefab_path    : AssetDatabase path of the replacement prefab\nscope_path         : hierarchy path to restrict the search (default: whole scene)\npreserve_transform : keep original position, rotation, and scale (default True)\npreserve_name      : keep the instance's original GameObject name (default True)\npreserve_parent    : keep the original hierarchy parent (default True)\ndry_run            : return what would be replaced without modifying the scene\n\nReturns\n-------\n{ replaced_count, dry_run, replaced: [{old_path, new_path}], warnings }\n\nThe new_path typically equals old_path when names are preserved — only the\nunderlying prefab asset changes.\n\nExample — placeholder to final asset swap\n------------------------------------------\n# Art drop arrived — replace all placeholder houses\nreplace_prefab(\n    old_prefab_path=\"Assets/Prefabs/Placeholders/House_Block.prefab\",\n    new_prefab_path=\"Assets/Prefabs/Buildings/Townhouse_A.prefab\",\n    scope_path=\"/World/Village\",\n    dry_run=True   # check count first\n)\n# → { replaced_count: 12, dry_run: True, ... }\n\nreplace_prefab(\n    old_prefab_path=\"Assets/Prefabs/Placeholders/House_Block.prefab\",\n    new_prefab_path=\"Assets/Prefabs/Buildings/Townhouse_A.prefab\",\n    scope_path=\"/World/Village\"\n)\n# → { replaced_count: 12, dry_run: False, ... }",
+      "input_schema": {
+        "properties": {
+          "old_prefab_path": {
+            "type": "string"
+          },
+          "new_prefab_path": {
+            "type": "string"
+          },
+          "scope_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "preserve_transform": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "preserve_name": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "preserve_parent": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "dry_run": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "old_prefab_path",
+          "new_prefab_path"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/placement/replace_prefab"
+    },
+    {
+      "name": "create_reflection_probe",
+      "summary": "Create a ReflectionProbe at a world position with a configurable influence volume.",
+      "description": "Create a ReflectionProbe at a world position with a configurable influence volume.\n\nIn open-world levels, reflection probes are placed by the dozen — one per room,\none per archway, one per metallic or wet surface — always with the same setup.\nThis tool removes per-probe Inspector work.\n\nAfter placing a batch of probes, trigger a lighting bake:\n    bake_lighting(mode=\"async\", bake_reflection_probes=True)\n\nParameters\n----------\nposition   : [x, y, z] world-space centre of the probe and its influence box\nsize       : [w, h, d] extents of the influence volume in world units.\n             Default [10, 5, 10]. The probe's influence is a box centred on position.\nmode       : \"baked\"    — captures lighting at bake time (default; cheapest at runtime)\n             \"realtime\" — re-captures every frame (expensive; use sparingly)\n             \"custom\"   — uses a manually assigned cubemap texture\nimportance : priority when probe volumes overlap; higher wins. Default 1.\n             Use 2+ for small interior probes that should override a larger outdoor probe.\nintensity  : reflection intensity multiplier 0.0–1.0. Default 1.0.\nhdr        : use HDR cubemap format. Default True.\nresolution : cubemap capture resolution. Must be power of 2 from 16 to 2048.\n             Default 128. Non-power-of-2 values are snapped to the nearest valid size.\n             Guideline: 128 for typical rooms, 256 for large or visually prominent spaces,\n             512+ only for hero shots.\nparent_path: hierarchy path of a parent object\nname       : GameObject name. Default \"ReflectionProbe\".\n\nReturns\n-------\n{ object_path, mode, importance, size: [w,h,d], resolution }\n\nExample — outfit a tavern interior\n------------------------------------\ncreate_reflection_probe(\n    position=[8.0, 1.5, 14.0],\n    size=[6.0, 3.5, 8.0],\n    mode=\"baked\",\n    importance=2,\n    resolution=256,\n    parent_path=\"/World/Village/Tavern/Lighting\",\n    name=\"ReflectionProbe_TavernMain\"\n)",
+      "input_schema": {
+        "properties": {
+          "position": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "mode": {
+            "default": "baked",
+            "type": "string"
+          },
+          "importance": {
+            "default": 1,
+            "type": "integer"
+          },
+          "intensity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "hdr": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "resolution": {
+            "default": 128,
+            "type": "integer"
+          },
+          "parent_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "position"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/world/create_reflection_probe"
+    },
+    {
+      "name": "create_patrol_route",
+      "summary": "Create a named patrol route as a scene hierarchy structure.",
+      "description": "Create a named patrol route as a scene hierarchy structure.\n\nThe route is created as:\n    PatrolRoute_{name}/              ← container, PatrolRouteData component\n        WP_00                        ← waypoint, PatrolWaypoint component\n        WP_01_{label}                ← waypoint with label in its name\n        ...\n\nThis structure is framework-agnostic. Your game's AI can discover routes at\nruntime by finding GameObjects named \"PatrolRoute_*\" and reading child world\npositions — no dependency on the bridge's editor-only components required.\n\nThe PatrolRouteData and PatrolWaypoint components carry design intent for the\neditor session and are stripped from player builds. See PatrolRouteComponents.cs\nfor runtime integration options.\n\nParameters\n----------\nname              : route name, used as suffix on the container: \"PatrolRoute_{name}\"\nwaypoints         : ordered list of waypoint definitions. Each is a dict with:\n                      position       [x, y, z] — required\n                      idle_time      float      — seconds to idle here (-1 = use default)\n                      look_direction [x, y, z]  — Euler angles to face while idling\n                      label          str        — optional name suffix e.g. \"east_gate\"\nloop              : True = last waypoint connects back to first (default True)\ndefault_idle_time : seconds to idle at waypoints that don't specify their own (default 1.0)\nzone_path         : hierarchy path of the ScaffoldZone to parent this route under.\n                    Takes priority over parent_path. The zone must already exist.\nparent_path       : fallback parent path when zone_path is not provided\n\nReturns\n-------\n{ route_path, waypoint_count, loop, zone_path?, waypoints: [{path, label?}] }\n\nExample — guard patrol in a dungeon antechamber\n------------------------------------------------\ncreate_patrol_route(\n    name=\"GuardSweep_East\",\n    zone_path=\"/Dungeon/Zone2_Antechamber\",\n    loop=True,\n    default_idle_time=1.5,\n    waypoints=[\n        {\"position\": [4.0, 0.0, 2.0],  \"label\": \"entry_post\",  \"idle_time\": 3.0},\n        {\"position\": [12.0, 0.0, 2.0]},\n        {\"position\": [12.0, 0.0, 14.0], \"label\": \"far_corner\",\n         \"idle_time\": 2.0, \"look_direction\": [0, 90, 0]},\n        {\"position\": [4.0, 0.0, 14.0]},\n    ]\n)",
+      "input_schema": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "waypoints": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "loop": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "default_idle_time": {
+            "default": 1.0,
+            "type": "number"
+          },
+          "zone_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "parent_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "name",
+          "waypoints"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/scaffold/create_patrol_route"
+    },
+    {
+      "name": "get_patrol_routes",
+      "summary": "List all patrol routes currently in the active scene.",
+      "description": "List all patrol routes currently in the active scene.\n\nReturns each route with its waypoints, positions, idle times, labels, and\neffective idle times (per-waypoint or resolved from the route default).\n\nUse this before create_patrol_route to check what routes already exist in\na zone, or to review the current patrol layout before making changes.\n\nReturns\n-------\n{ routes: [{ route_path, name, zone_path?, loop, waypoint_count,\n             waypoints: [{ path, index, position, idle_time, label?, look_direction? }] }] }",
+      "input_schema": {
+        "properties": {},
+        "type": "object"
+      },
+      "method": "GET",
+      "path": "/assets/scaffold/patrol_routes"
+    },
+    {
+      "name": "capture_scene_view",
+      "summary": "Render the active Unity Scene View and return the result as an image.",
+      "description": "Render the active Unity Scene View and return the result as an image.\n\nClaude receives the image directly in context and can describe what it\nsees, identify layout issues, and suggest specific adjustments — closing\nthe visual feedback loop that otherwise requires manual viewport inspection\nafter every operation.\n\nThe capture renders the scene camera without editor gizmos and handles,\ngiving a clean view of the actual scene geometry. This is intentional:\nthe undecorated scene is what the player sees, and it is less cluttered\nfor spatial review than the gizmo-heavy editor view.\n\n── TYPICAL USAGE ────────────────────────────────────────────────────────\n\nAfter any placement or dressing operation:\n\n    # Place props, then review\n    execute_proposal(\"prop_dress_a3f2\")\n    capture_scene_view(focus_path=\"/World/Village/Market\",\n                       width=1920, height=1080)\n    # Claude: \"The north corner looks sparse — the stalls are clustered\n    #          in the south. Should I scatter a few more crates at [22,0,18]?\"\n\n── PARAMETERS ───────────────────────────────────────────────────────────\n\nwidth      : capture width in pixels (default 1280)\nheight     : capture height in pixels (default 720)\nquality    : JPEG quality 1–100 (default 85).\n             85 is a good balance of quality and response size.\n             Use 60–70 for a quick overview; 95+ for detailed inspection.\nfocus_path : hierarchy path of an object to frame before capturing.\n             The Scene View pivot and size are set from the object's\n             renderer bounds. If the path is not found, the current\n             view orientation is used and a warning is returned with\n             the image.\n\n── RETURN TYPE ──────────────────────────────────────────────────────────\n\nReturns Image on success — Claude sees the scene image directly. When\nUnity reports warnings (e.g. focus_path not found), they follow the\nimage as text.\nReturns str on error — Claude sees the error message as text.\n\nThis is the only tool in the bridge that returns Image rather than a\nJSON string. All other tools return json.dumps(result).\n\n── REQUIREMENTS ─────────────────────────────────────────────────────────\n\nA Scene View window must be open and active in the Unity Editor.\nThe capture fails with NO_SCENE_VIEW if no Scene View is available\n(e.g. if only the Game View is open, or Unity is minimised).",
+      "input_schema": {
+        "properties": {
+          "width": {
+            "default": 1280,
+            "type": "integer"
+          },
+          "height": {
+            "default": 720,
+            "type": "integer"
+          },
+          "quality": {
+            "default": 85,
+            "type": "integer"
+          },
+          "focus_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/debug/capture_scene_view"
+    },
+    {
+      "name": "write_project_file",
+      "summary": "Write a file to the Unity project's Assets folder. The file is not imported.",
+      "description": "    Write a file to the Unity project's Assets folder. The file is not imported.\n\n    The most common use is creating new C# scripts, but it works for any text\n    file: ScriptableObject data, shader graphs exported as JSON, config files,\n    README documents, etc.\n\n    Unity does not import the file and does not compile scripts until\n    refresh_assets() is called (or the Unity Editor regains focus with Auto\n    Refresh on). Write every file first, then call refresh_assets() once.\n\n    Parameters\n    ----------\n    path               : path relative to Assets/, e.g. \"Scripts/Player/PlayerController.cs\"\n                         A leading \"Assets/\" is accepted and stripped automatically.\n    content            : full text content to write (UTF-8)\n    overwrite          : replace the file if it already exists (default True).\n                         Set False to protect existing files.\n    create_directories : create intermediate directories if they don't exist (default True).\n                         Set False to require the directory to exist first.\n\n    Returns\n    -------\n    { asset_path, created: bool, overwrote: bool, bytes_written: int }\n\n    Workflow — create a new MonoBehaviour\n    -------------------------------------\n    write_project_file(\n        path=\"Scripts/AI/GuardPatrol.cs\",\n        content='''using UnityEngine;\n\npublic class GuardPatrol : MonoBehaviour\n{\n    public Transform[] waypoints;\n\n    private void Start()\n    {\n    }\n}'''\n    )\n    # Then, once all files are written: refresh_assets()\n\n    Notes\n    -----\n    - Write all files first, send the final response, then call\n      refresh_assets() to trigger compilation without killing the conversation.\n    - Immediately after writing a script, wait for Unity to finish compiling\n      before trying to add the new component to a scene object via add_component_to_object.\n    - To update an existing script, call read_project_file first to see the\n      current content, then write_project_file with the modified version.\n    ",
+      "input_schema": {
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "overwrite": {
+            "default": true,
+            "type": "boolean"
+          },
+          "create_directories": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "path",
+          "content"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/project/write_file"
+    },
+    {
+      "name": "read_project_file",
+      "summary": "Read the text content of a file from the Unity project's Assets folder.",
+      "description": "Read the text content of a file from the Unity project's Assets folder.\n\nUse this to inspect an existing script before modifying it, to check whether\na file already exists before writing, or to read config and data files.\n\nParameters\n----------\npath : path relative to Assets/, e.g. \"Scripts/Player/PlayerController.cs\"\n       A leading \"Assets/\" is accepted and stripped automatically.\n\nReturns\n-------\n{ asset_path, exists: bool, content?: str, size_bytes?: int }\n\nIf the file does not exist, returns { exists: false } without an error —\nuse this to safely check for a file before writing it.",
+      "input_schema": {
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/project/read_file"
+    },
+    {
+      "name": "list_project_files",
+      "summary": "List files in a directory under the Unity project's Assets folder.",
+      "description": "List files in a directory under the Unity project's Assets folder.\n\n.meta files are excluded from results automatically.\n\nParameters\n----------\npath      : directory path relative to Assets/ (empty = Assets root)\npattern   : file glob pattern (default \"*\"). Examples: \"*.cs\", \"*.prefab\", \"*.asset\"\nrecursive : include files in subdirectories (default False)\n\nReturns\n-------\n{ directory, files: [str], count: int }\n\nAll returned paths are in \"Assets/...\" format.\n\nExamples\n--------\nlist_project_files(\"Scripts\", \"*.cs\", recursive=True)\n→ lists all C# scripts under Assets/Scripts/\n\nlist_project_files(\"Prefabs/Props\", \"*.prefab\")\n→ lists all prefabs directly in Assets/Prefabs/Props/",
+      "input_schema": {
+        "properties": {
+          "path": {
+            "default": "",
+            "type": "string"
+          },
+          "pattern": {
+            "default": "*",
+            "type": "string"
+          },
+          "recursive": {
+            "default": false,
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/project/list_files"
+    },
+    {
+      "name": "refresh_assets",
+      "summary": "Refresh the Unity AssetDatabase and trigger recompilation of any changed scripts.\nCall it last: the recompile reloads Unity's scripts and can end the conversation.",
+      "description": "Refresh the Unity AssetDatabase and trigger recompilation of any changed scripts.\nCall it last: the recompile reloads Unity's scripts and can end the conversation.\n\nCall this AFTER writing all files and AFTER composing the final response text —\nnot in the middle of a tool-call sequence. This avoids a domain reload killing\nthe in-flight conversation.\n\nCorrect workflow for creating a C# script:\n    1. write_project_file(path=\"Scripts/Foo.cs\", content=\"...\")\n    2. Compose and send your final summary response to the user\n    3. [separately, if asked] call refresh_assets()\n\nOr, if the user needs the script compiled as part of the same turn:\n    1. write_project_file(...)\n    2. refresh_assets()        ← this ends the agent turn (domain reload follows)\n    3. (tell the user Unity is compiling)\n\nReturns\n-------\n{ refreshed: true, message: str }",
+      "input_schema": {
+        "properties": {},
+        "type": "object"
+      },
+      "method": "POST",
+      "path": "/tools/project/refresh_assets"
+    }
+  ]
+}

@@ -20,7 +20,7 @@ Each tool is implemented in two places:
 
 | Concern | Where |
 |---|---|
-| Tool name, description, parameter schema | Python function docstring + type hints |
+| Tool name, description, parameter schema | Python function docstring + type hints (exported to `Editor/Catalog/builtin-tools.json` for the in-editor agent) |
 | HTTP request serialisation | Python (`unity_client.post` / `.get`) |
 | Request parsing, routing | C# `McpRouter` |
 | Unity API logic | C# handler class |
@@ -320,27 +320,45 @@ if (method == "GET" && path == "/scene/find")
         request.QueryString["name"]);
 ```
 
-**That's all four steps.** Rebuild in Unity and restart Claude Desktop — the new tool appears automatically.
+Last, regenerate the tool catalog, which is how the in-editor agent and `describe_tool` learn about the new tool. From `server/`:
+
+```bash
+uv run python scripts/export_tool_catalog.py
+```
+
+`scripts/check_contract.py` fails while the catalog is out of date.
+
+**That's all the steps.** Rebuild in Unity and restart Claude Desktop — the new tool appears automatically.
 
 ### 4.4 Adding tools from another assembly (extensions)
 
-Code that depends on something the bridge must not require (PCGFramework, ECC, …) registers its routes from its own assembly instead of editing `McpRouter.cs`:
+Code that depends on something the bridge must not require (PCGFramework, ECC, …) registers its tools from its own assembly instead of editing `McpRouter.cs` and the Python server:
 
 ```csharp
 [InitializeOnLoad]
-internal static class MyRoutes
+internal static class MyTools
 {
-    static MyRoutes()
+    static MyTools()
     {
-        McpRouteRegistry.Register("POST", "/tools/my/thing",
-            async request => await MyHandler.DoThingAsync(
-                await McpRouter.ParseBodyAsync<MyThingRequest>(request)),
-            "My Extension");
+        McpToolRegistry.Register(new McpToolDefinition
+        {
+            Name        = "do_my_thing",
+            Summary     = "One paragraph: what it does and when to use it.",
+            Description = "The summary, then the full guide with examples.",
+            InputSchema = JObject.Parse(@"{""type"":""object"",""properties"":{""target"":{""type"":""string""}},""required"":[""target""]}"),
+            Method      = "POST",                   // optional, POST by default
+            Path        = "/tools/my/thing",        // optional, /tools/ext/<name> by default
+            ReadOnly    = false,                    // true if it only reads
+            Owner       = "My Extension",
+            Handler     = args => MyHandler.DoThingAsync(args.ToObject<MyThingRequest>()),
+        });
     }
 }
 ```
 
-The router checks its own routes first and then the registry, so an extension cannot replace a bridge route. Give the extension's assembly definition a version define on the bridge package and make it a define constraint, so it only compiles when the bridge is installed:
+A registered tool is listed by `/tools/catalog`, offered to the in-editor agent, usable in proposals, and reachable from MCP clients through `list_unity_tools` and `call_unity_tool`, with no Python code. The handler receives the arguments exactly as the schema names them, so the request type must read those names. Set `AlwaysConfirm = true` for tools the agent should always ask about (code, files, deletes, batches). A name the bridge already uses is refused.
+
+Routes that aren't tools can still be added with `McpRouteRegistry.Register(method, path, handler, owner)`. The router checks its own routes first and then the registry, so an extension cannot replace a bridge route. Give the extension's assembly definition a version define on the bridge package and make it a define constraint, so it only compiles when the bridge is installed:
 
 ```json
 "defineConstraints": [ "EADON_MCP_BRIDGE" ],
@@ -349,7 +367,7 @@ The router checks its own routes first and then the registry, so an extension ca
 ]
 ```
 
-The PCG tools are the reference example: `extensions/pcg/` in the repo, copied next to PCGFramework in each project that has it.
+The PCG tools are the reference example: `extensions/pcg/` in the repo, copied next to PCGFramework in each project that has it. `scripts/check_contract.py` reads the extensions folder and checks their routes and argument names too.
 
 ---
 
@@ -652,7 +670,10 @@ async def my_tool(
     """
 ```
 
+The first paragraph is the tool's **summary**: the in-editor agent sees only that, plus a pointer to `describe_tool`, so it must be enough to choose the tool. Examples, option lists and caveats go in the paragraphs after it, which the agent reads with `describe_tool` and MCP clients see in full.
+
 Rules:
+- First paragraph: says what the tool does and when to use it, on its own
 - First line: one sentence, no period, describes the primary action
 - Each parameter: one line, describes format and effect of omitting it
 - `dry_run`: always describe exactly what is and isn't validated/executed
@@ -670,6 +691,7 @@ Use this when adding any new tool:
 - [ ] `try/except UnityConnectionError` and `UnityError` — returns string, does not raise
 - [ ] Dry run info reflected in return string (`"[DRY RUN]"` prefix)
 - [ ] Registered in `server.py` with `mcp.tool()(function_name)`
+- [ ] Catalog regenerated with `scripts/export_tool_catalog.py`; `scripts/check_contract.py` passes
 
 **C# Models.cs:**
 - [ ] Request DTO with `[JsonProperty("snake_case")]` on every property

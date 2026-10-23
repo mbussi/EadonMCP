@@ -16,7 +16,7 @@ from unity_mcp.tools.lighting import create_light, set_ambient_light, set_skybox
 from unity_mcp.tools.proposal import propose_changes, execute_proposal, discard_proposal, get_pending_proposals
 from unity_mcp.tools.procedural import place_prefab_batch, scatter_prefabs, place_along_path, fill_grid
 from unity_mcp.tools.components import get_component_catalog, add_component_to_object
-from unity_mcp.tools.pcg import get_pcg_node_catalog, get_pcg_graphs, validate_pcg_graph, create_pcg_graph, search_prefabs_for_pcg
+from unity_mcp.tools.catalog import list_unity_tools, call_unity_tool
 from unity_mcp.tools.scaffold import get_scaffold_zones, get_scaffold_anchors, get_scaffold_markers, create_zone_scaffold, link_zones, create_reference_point, create_gameplay_marker, update_gameplay_marker, hide_scaffold, show_scaffold, resolve_scaffold_markers, execute_bake, create_patrol_route, get_patrol_routes
 from unity_mcp.tools.cutscene import get_cutscene_templates, create_cutscene_sequence, preview_cutscene_sequence, update_cutscene_sequence
 from unity_mcp.tools.objects import find_objects, get_object_properties, set_object_properties, set_object_metadata, reparent_objects, duplicate_objects
@@ -75,11 +75,9 @@ mcp.tool()(fill_grid)
 mcp.tool()(get_component_catalog)
 mcp.tool()(add_component_to_object)
 
-mcp.tool()(get_pcg_node_catalog)
-mcp.tool()(get_pcg_graphs)
-mcp.tool()(validate_pcg_graph)
-mcp.tool()(create_pcg_graph)
-mcp.tool()(search_prefabs_for_pcg)
+# Tools registered by Unity extensions (e.g. the PCG tools) are reached through these two.
+mcp.tool()(list_unity_tools)
+mcp.tool()(call_unity_tool)
 
 mcp.tool()(get_scaffold_zones)
 mcp.tool()(get_scaffold_anchors)

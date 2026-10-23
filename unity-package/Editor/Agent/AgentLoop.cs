@@ -145,7 +145,7 @@ namespace UnityMcpBridge.Editor.Agent
                 : userInput;
             history.Add(new ConversationMessage { Role = MessageRole.User, Text = text });
 
-            var tools      = ToolRegistry.GetAll();
+            var tools      = ToolRegistry.GetAll(settings.fullToolDescriptions);
             var totalText  = new StringBuilder();
             var images     = new List<byte[]>();
 
@@ -286,14 +286,11 @@ namespace UnityMcpBridge.Editor.Agent
             ToolUse           tu,
             CancellationToken ct)
         {
-            if (!ToolRegistry.RouteMap.TryGetValue(tu.Name, out var route))
-                return Fail($"Unknown tool '{tu.Name}' — not in ToolRegistry.RouteMap.");
+            if (!ToolRegistry.TryGetRoute(tu.Name, out var method, out var path))
+                return Fail($"Unknown tool '{tu.Name}'.");
 
             try
             {
-                var (method, path) = route;
-                var baseUrl = settings.BridgeBaseUrl;
-
                 if (method == "GET")
                 {
                     // Convert input JSON to query string

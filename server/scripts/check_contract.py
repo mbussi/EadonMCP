@@ -1,18 +1,21 @@
 """
-Check that the Python tools and the in-editor agent agree with the Unity bridge.
+Check that the Python tools, the tool catalog and the Unity bridge agree.
 
 Reads the C# of the Unity bridge (routes in McpRouter.cs, request types and
-their [JsonProperty] names, the agent's ToolRegistry.cs) and the Python tools
-in this repo, then reports:
+their [JsonProperty] names, the tools extensions register with
+McpToolRegistry), the built-in tool catalog (Editor/Catalog/builtin-tools.json)
+and the Python tools in this repo, then reports:
 
   - Python calls to a route the bridge does not have
   - keys a Python tool sends that the request type does not read
     (Unity ignores them silently)
   - Python tool functions that are not registered in server.py
-  - bridge routes no Python tool calls
-  - agent tools whose route does not exist, that have no schema, or whose
-    schema keys the request type does not read
-  - Python tools the agent does not offer
+  - a built-in tool catalog that is out of date with the Python docstrings
+    (run scripts/export_tool_catalog.py)
+  - catalog tools whose route does not exist
+  - catalog tool arguments the route does not read: the in-editor agent and
+    call_unity_tool send the arguments exactly as the schema names them
+  - bridge routes no tool reaches
 
 Usage (from server/):
     uv run python scripts/check_contract.py            # the repo's unity-package and extensions
@@ -20,11 +23,10 @@ Usage (from server/):
 
 The path can be the package folder (the one with package.json and Editor/), the
 repository root, or an older project layout (Assets/UnityMCP with Source/Editor).
-Routes that extensions register through McpRouteRegistry are read from the
-repository's extensions/ folder.
-Exits with 1 when it finds a mismatch, 0 otherwise. Coverage gaps (routes
-without a Python tool, Python tools the agent lacks) are listed but do not
-fail the check.
+Routes and tools that extensions register (McpRouteRegistry, McpToolRegistry)
+are read from the repository's extensions/ folder.
+Exits with 1 when it finds a mismatch, 0 otherwise. Coverage gaps (routes no
+tool reaches) are listed but do not fail the check.
 
 This is a text-level check, not a compiler: it reads the code with regular
 expressions and the Python ast module, so unusual formatting can hide a call.
@@ -34,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import json
 import re
 import sys
 from pathlib import Path
@@ -109,6 +112,9 @@ def all_fields(classes: dict[str, dict], name: str) -> list[str]:
 def parse_routes(editor: Path, extensions: Path) -> dict[tuple[str, str], dict]:
     text = strip_comments((editor / "Core" / "McpRouter.cs").read_text(encoding="utf-8"))
     routes = {}
+    for m in re.finditer(r'method\s*==\s*"(\w+)"\s*&&\s*path\s*==\s*"([^"]+)"\s*\)([^;]*;)', text):
+        routes[(m.group(1), m.group(2))] = {"handler": "McpRouter", "request": None,
+                                            "query": re.findall(r'QueryString\["(\w+)"\]', m.group(3))}
     pattern = r'method\s*==\s*"(\w+)"\s*&&\s*path\s*==\s*"([^"]+)"\s*\)\s*return\s+await\s+([\w.]+)\(([^;]*);'
     for m in re.finditer(pattern, text, flags=re.S):
         body = m.group(4)
@@ -130,18 +136,62 @@ def parse_routes(editor: Path, extensions: Path) -> dict[tuple[str, str], dict]:
                     "request": req.group(1) if req else None,
                     "query": re.findall(r'QueryString\["(\w+)"\]', body),
                 }
+    # Extension tools register their own route.
+    for tool in parse_extension_tools(extensions):
+        routes[(tool["method"], tool["path"])] = {
+            "handler": f"{tool['name']} ({tool['owner']})",
+            "request": tool["request"],
+            "query": list(tool["schema_keys"]),
+        }
     return routes
 
 
-def parse_agent(editor: Path) -> tuple[dict[str, tuple[str, str]], dict[str, list[str]]]:
-    text = strip_comments((editor / "Agent" / "ToolRegistry.cs").read_text(encoding="utf-8"))
-    route_map = {m.group(1): (m.group(2), m.group(3))
-                 for m in re.finditer(r'\{\s*"(\w+)",\s*\("(\w+)",\s*"([^"]+)"\)\s*\}', text)}
-    schemas = {}
-    for m in re.finditer(r'\bT\(\s*"(\w+)"', text):
-        end = matching_brace(text, m.end(), "(", ")")
-        schemas[m.group(1)] = re.findall(r'\bP\(\s*"(\w+)"', text[m.end():end])
-    return route_map, schemas
+def _string_value(text: str, field: str) -> str | None:
+    m = re.search(rf'\b{field}\s*=\s*(@?)"((?:[^"]|"")*)"', text, flags=re.S)
+    if not m:
+        return None
+    return m.group(2).replace('""', '"') if m.group(1) else m.group(2)
+
+
+def parse_extension_tools(extensions: Path) -> list[dict]:
+    """Tools registered with McpToolRegistry.Register(new McpToolDefinition { ... })."""
+    tools = []
+    if not extensions.exists():
+        return tools
+    for file in extensions.rglob("*.cs"):
+        text = file.read_text(encoding="utf-8", errors="replace")
+        for m in re.finditer(r"McpToolRegistry\.Register\(\s*new\s+McpToolDefinition\s*\{", text):
+            body = text[m.end():matching_brace(text, m.end()) - 1]
+            name = _string_value(body, "Name")
+            schema_text = re.search(r'InputSchema\s*=\s*JObject\.Parse\(\s*@"((?:[^"]|"")*)"', body, flags=re.S)
+            schema = json.loads(schema_text.group(1).replace('""', '"')) if schema_text else {}
+            request = re.search(r"ToObject<(\w+)>", body)
+            owner = re.search(r'Owner\s*=\s*(\w+|"[^"]*")', body)
+            owner_name = owner.group(1).strip('"') if owner else "extension"
+            if owner_name == "Owner":
+                const = re.search(r'const\s+string\s+Owner\s*=\s*"([^"]+)"', text)
+                owner_name = const.group(1) if const else "extension"
+            tools.append({
+                "name": name,
+                "method": (_string_value(body, "Method") or "POST").upper(),
+                "path": _string_value(body, "Path") or f"/tools/ext/{name}",
+                "request": request.group(1) if request else None,
+                "schema_keys": list((schema.get("properties") or {}).keys()),
+                "owner": owner_name,
+            })
+    return tools
+
+
+def load_catalog(editor: Path) -> list[dict]:
+    """The built-in tools from Editor/Catalog/builtin-tools.json, plus describe_tool."""
+    file = editor / "Catalog" / "builtin-tools.json"
+    if not file.exists():
+        return []
+    tools = [{"name": t["name"], "method": t["method"], "path": t["path"],
+              "schema_keys": list((t.get("input_schema") or {}).get("properties", {}).keys())}
+             for t in json.loads(file.read_text(encoding="utf-8"))["tools"]]
+    tools.append({"name": "describe_tool", "method": "GET", "path": "/tools/describe", "schema_keys": ["name"]})
+    return tools
 
 
 # ---------------------------------------------------------------------------
@@ -199,17 +249,28 @@ def main() -> int:
 
     classes = parse_classes([editor, EXTENSIONS_ROOT])
     routes = parse_routes(editor, EXTENSIONS_ROOT)
-    route_map, schemas = parse_agent(editor)
+    catalog = load_catalog(editor) + parse_extension_tools(EXTENSIONS_ROOT)
     calls = parse_python_calls()
     registered = registered_tools()
 
     problems: list[str] = []
     notes: list[str] = []
 
-    called = set()
+    # The catalog must match the Python docstrings it is generated from (only for
+    # this repository's own package: another copy may be an older version).
+    if editor.resolve() == (DEFAULT_PACKAGE / "Editor").resolve():
+        sys.path.insert(0, str(SERVER_ROOT / "src"))
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from export_tool_catalog import is_up_to_date
+        if not is_up_to_date():
+            problems.append("builtin-tools.json is out of date: run scripts/export_tool_catalog.py")
+    if not catalog:
+        problems.append(f"no tool catalog found under {editor / 'Catalog'}")
+
+    reached = set()
     for c in calls:
         key = (c["method"], c["path"])
-        called.add(key)
+        reached.add(key)
         route = routes.get(key)
         if route is None:
             problems.append(f"{c['tool']}: no route for {c['method']} {c['path']}")
@@ -228,32 +289,31 @@ def main() -> int:
     for name in sorted(tool_functions - registered):
         problems.append(f"{name}: not registered in server.py")
 
-    for key, route in routes.items():
-        if key not in called:
-            notes.append(f"route with no Python tool: {key[0]} {key[1]} ({route['handler']})")
-
-    for tool, (method, path) in route_map.items():
-        route = routes.get((method, path))
+    # Catalog tools: the agent and call_unity_tool send the schema's argument names as they are.
+    for tool in catalog:
+        key = (tool["method"], tool["path"])
+        reached.add(key)
+        route = routes.get(key)
         if route is None:
-            problems.append(f"agent {tool}: no route for {method} {path}")
-            continue
-        if tool not in schemas:
-            notes.append(f"agent {tool}: in the route map but has no schema, so the model cannot call it")
+            problems.append(f"tool {tool['name']}: no route for {key[0]} {key[1]}")
             continue
         if route["request"]:
             fields = all_fields(classes, route["request"])
-            ignored = [k for k in schemas[tool] if fields and not reads(fields, k)]
+            ignored = [k for k in tool["schema_keys"] if fields and not reads(fields, k)]
+        elif key[0] == "GET":
+            ignored = [k for k in tool["schema_keys"] if k not in route["query"]]
         else:
-            ignored = [k for k in schemas[tool] if method == "GET" and k not in route["query"]]
+            ignored = []
         if ignored:
-            problems.append(f"agent {tool}: Unity ignores {ignored}")
-    for tool in schemas:
-        if tool not in route_map:
-            problems.append(f"agent {tool}: has a schema but no route")
-    for name in sorted(tool_functions - set(route_map) - {"ping_unity"}):
-        notes.append(f"agent does not offer {name}")
+            problems.append(f"tool {tool['name']}: Unity ignores {ignored}")
 
-    print(f"Checked {len(calls)} Python calls, {len(routes)} routes, {len(route_map)} agent tools.\n")
+    # Routes the bridge serves for itself, not as a tool.
+    reached |= {("GET", "/tools/catalog"), ("POST", "/tools/call")}
+    for key, route in routes.items():
+        if key not in reached:
+            notes.append(f"route no tool reaches: {key[0]} {key[1]} ({route['handler']})")
+
+    print(f"Checked {len(calls)} Python calls, {len(routes)} routes, {len(catalog)} catalog tools.\n")
     print(f"Mismatches ({len(problems)}):")
     for p in problems:
         print(f"  {p}")
