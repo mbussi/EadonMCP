@@ -196,9 +196,22 @@ namespace UnityMcpBridge.Editor.Tools
                 bool blendChanged    = newBlendIn.HasValue || newBlendOut.HasValue ||
                                        newEaseIn.HasValue  || newEaseOut.HasValue;
 
-                if (durationChanged || blendChanged)
-                    ApplyTimingToTimeline(timeline, duration, blendIn, blendOut,
-                        updated, warnings);
+                // updated_fields names the timing parameters that were given and applied.
+                if ((durationChanged || blendChanged) &&
+                    ApplyTimingToTimeline(timeline, duration, blendIn, blendOut, warnings))
+                {
+                    if (durationChanged) updated.Add("duration");
+                    if (pathTemplate)
+                    {
+                        if (newEaseIn.HasValue)  updated.Add("ease_in");
+                        if (newEaseOut.HasValue) updated.Add("ease_out");
+                    }
+                    else
+                    {
+                        if (newBlendIn.HasValue)  updated.Add("blend_in");
+                        if (newBlendOut.HasValue) updated.Add("blend_out");
+                    }
+                }
 
                 // ── Template-specific updates ────────────────────────────── //
                 switch (req.Template)
@@ -255,14 +268,15 @@ namespace UnityMcpBridge.Editor.Tools
         //  Timing — Cinemachine clip, ActivationTrack, SignalTrack           //
         // ------------------------------------------------------------------ //
 
-        private static void ApplyTimingToTimeline(
+        /// <summary>False when the camera clip could not be updated (a warning says why).</summary>
+        private static bool ApplyTimingToTimeline(
             TimelineAsset timeline,
             float         duration,
             float         blendIn,
             float         blendOut,
-            List<string>  updated,
             List<string>  warnings)
         {
+            bool cameraClipUpdated = false;
             // Cinemachine clip
 #if CM3
             var cineTrack = GetTrack<CinemachineTrack>(timeline);
@@ -274,8 +288,7 @@ namespace UnityMcpBridge.Editor.Tools
                     clip.easeInDuration  = blendIn;
                     clip.easeOutDuration = blendOut;
                 }
-                if (!updated.Contains("duration"))   updated.Add("duration");
-                if (!updated.Contains("blend_times")) updated.Add("blend_times");
+                cameraClipUpdated = true;
             }
             else
             {
@@ -327,6 +340,7 @@ namespace UnityMcpBridge.Editor.Tools
                     }
                 }
             }
+            return cameraClipUpdated;
         }
 
         // ------------------------------------------------------------------ //

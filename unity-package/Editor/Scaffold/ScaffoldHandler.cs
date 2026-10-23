@@ -424,9 +424,9 @@ namespace UnityMcpBridge.Editor.Tools
                     zones_affected  = count,
                     zones_reactivated = reactivated,
                     message         = active
-                        ? $"Scaffold gizmos visible ({count} zones)." +
-                          (reactivated > 0 ? $" Reactivated {reactivated} zone(s) an earlier hide had deactivated." : string.Empty)
-                        : $"Scaffold gizmos hidden ({count} zones). Baked content stays visible. " +
+                        ? $"Scaffold gizmos visible ({Zones(count)})." +
+                          (reactivated > 0 ? $" Reactivated {Zones(reactivated)} that an earlier hide had deactivated." : string.Empty)
+                        : $"Scaffold gizmos hidden ({Zones(count)}). Baked content stays visible. " +
                           "Call show_scaffold to show them again.",
                 });
             });
@@ -486,5 +486,7 @@ namespace UnityMcpBridge.Editor.Tools
             a != null && a.Length >= 3 ? new Vector3(a[0], a[1], a[2]) : Vector3.zero;
 
         private static float[] V3(Vector3 v) => new[] { v.x, v.y, v.z };
+
+        private static string Zones(int n) => n == 1 ? "1 zone" : $"{n} zones";
     }
 }
