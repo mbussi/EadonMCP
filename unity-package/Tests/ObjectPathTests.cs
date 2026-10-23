@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -81,35 +82,85 @@ namespace UnityMcpBridge.Editor.Tests
             Assert.AreSame(leaf, PlacementHandler.FindByPath(PlacementHandler.GetPath(leaf)));
         }
 
+        // -----------------------------------------------------------------------
+        // Other loaded scenes
+        // -----------------------------------------------------------------------
+
+        private const string TempFolder = "Assets/McpPathTestTemp";
+
+        /// <summary>
+        /// The Test Runner runs EditMode tests in an untitled scene, and Unity cannot add a
+        /// scene next to an untitled one. So these tests save their own scenes in a
+        /// temporary folder, which they remove afterwards. The Test Runner reopens the
+        /// user's scenes when the run ends.
+        /// </summary>
+        private static Scene OpenSavedMainScene()
+        {
+            if (!AssetDatabase.IsValidFolder(TempFolder))
+                AssetDatabase.CreateFolder("Assets", "McpPathTestTemp");
+            var main = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            Assert.IsTrue(EditorSceneManager.SaveScene(main, TempFolder + "/PathTestMain.unity"));
+            return main;
+        }
+
+        private static void CloseTempScenes()
+        {
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            AssetDatabase.DeleteAsset(TempFolder);
+        }
+
         [Test]
         public void OtherLoadedScene_IsSearched_AndPrefixed()
         {
-            // Unity cannot add a scene while an untitled scene is unsaved, which is how the
-            // Test Runner usually runs EditMode tests. The cross-scene search is then
-            // checked by hand (manage_scene create, then a path into the new scene).
-            for (int i = 0; i < SceneManager.sceneCount; i++)
-                if (string.IsNullOrEmpty(SceneManager.GetSceneAt(i).path))
-                    Assert.Ignore("Needs every open scene saved: Unity cannot add a scene next to an untitled one.");
-
-            var active = SceneManager.GetActiveScene();
-            var scene  = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
-            SceneManager.SetActiveScene(active);
+            var main = OpenSavedMainScene();
             try
             {
-                var go = new GameObject("PathTestElsewhere");
-                SceneManager.MoveGameObjectToScene(go, scene);
+                var other = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+                Assert.IsTrue(EditorSceneManager.SaveScene(other, TempFolder + "/PathTestOther.unity"));
+                SceneManager.SetActiveScene(main);
 
-                Assert.AreSame(go, PlacementHandler.FindByPath("PathTestElsewhere"));
-                var path = PlacementHandler.GetPath(go);
-                var expected = string.IsNullOrEmpty(scene.name)
-                    ? "PathTestElsewhere"                      // an unsaved scene has no name to prefix
-                    : scene.name + ":PathTestElsewhere";
-                Assert.AreEqual(expected, path);
-                Assert.AreSame(go, PlacementHandler.FindByPath(path));
+                var elsewhere = new GameObject("PathTestElsewhere");
+                SceneManager.MoveGameObjectToScene(elsewhere, other);
+
+                Assert.AreSame(elsewhere, PlacementHandler.FindByPath("PathTestElsewhere"));
+                Assert.AreEqual("PathTestOther:PathTestElsewhere", PlacementHandler.GetPath(elsewhere));
+                Assert.AreSame(elsewhere, PlacementHandler.FindByPath("PathTestOther:PathTestElsewhere"));
+
+                // The active scene is searched first; the prefix still reaches the other scene.
+                var local = new GameObject("PathTestElsewhere");
+                Assert.AreEqual("PathTestElsewhere", PlacementHandler.GetPath(local));
+                Assert.AreSame(local, PlacementHandler.FindByPath("PathTestElsewhere"));
+                Assert.AreSame(elsewhere, PlacementHandler.FindByPath("PathTestOther:PathTestElsewhere"));
             }
             finally
             {
-                EditorSceneManager.CloseScene(scene, removeScene: true);
+                CloseTempScenes();
+            }
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void CreateScene_KeepsTheActiveScene_UnlessSetActive(bool setActive)
+        {
+            var main = OpenSavedMainScene();
+            try
+            {
+                var task = SceneManagementHandler.ManageSceneAsync(new ManageSceneRequest
+                {
+                    Operation = "create",
+                    ScenePath = TempFolder + "/PathTestCreated.unity",
+                    SetActive = setActive,
+                });
+                MainThreadDispatcher.Tick();
+
+                Assert.IsTrue(task.Result.Success, task.Result.Error?.Message);
+                Assert.AreEqual(2, SceneManager.sceneCount);
+                var expected = setActive ? "PathTestCreated" : main.name;
+                Assert.AreEqual(expected, SceneManager.GetActiveScene().name);
+            }
+            finally
+            {
+                CloseTempScenes();
             }
         }
 
