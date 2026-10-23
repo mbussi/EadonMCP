@@ -180,9 +180,9 @@ async def set_fog(
         })
         dry    = data.get("dry_run", False)
         state  = "enabled" if enabled else "disabled"
-        prefix = f"[DRY RUN] Would have set fog to {state}" if dry else f"Fog {state}"
-        suffix = ". No changes made." if dry else "."
+        prefix = f"[DRY RUN] Would have set fog to {state}." if dry else f"Fog {state}."
         extras = f" Mode: {mode}." if mode else ""
+        suffix = " No changes made." if dry else ""
         return f"{prefix}{extras}{suffix}"
     except UnityConnectionError as exc:
         return f"Cannot connect to Unity: {exc}"
