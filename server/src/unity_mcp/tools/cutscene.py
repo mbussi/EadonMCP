@@ -182,7 +182,10 @@ async def update_cutscene_sequence(
     ── WHAT CAN BE UPDATED ──────────────────────────────────────────────────
 
     ALL templates:
-      duration    (float)   — total sequence length in seconds
+      duration    (float)   — total sequence length in seconds. For FocusCut it
+                              is the hold, as at creation: the clip lasts
+                              blend_in + duration + blend_out, and changing only
+                              the blends keeps the hold.
       blend_in    (float)   — seconds to blend in (DialogueCamera, FocusCut)
       blend_out   (float)   — seconds to blend out (DialogueCamera, FocusCut)
       ease_in     (float)   — fraction of the duration for ease-in  (AreaReveal, ArrivalFlythrough)
@@ -224,7 +227,7 @@ async def update_cutscene_sequence(
         }
     )
 
-    # Tighten a FocusCut blend
+    # Tighten a FocusCut blend (duration is the hold: the clip becomes 2.5 s)
     update_cutscene_sequence(
         container_path = "/Cutscenes/FocusCut_AncientKey",
         template       = "FocusCut",

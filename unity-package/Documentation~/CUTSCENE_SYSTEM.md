@@ -244,6 +244,10 @@ close angle on the target, holds briefly, then blends back.
 | `sequence_name` | string | |
 | `timeline_path` | string | |
 
+The camera clip lasts `blend_in` + `duration` + `blend_out`.
+`update_cutscene_sequence` reads `duration` the same way, as the hold: changing
+only the blends keeps the hold and changes the clip length.
+
 **What gets created**
 
 ```

@@ -192,6 +192,15 @@ namespace UnityMcpBridge.Editor.Tools
                                      "ease_in / ease_out were ignored.");
                 }
 
+                // FocusCut: duration is the hold, as at creation, and the clip is
+                // blend in + hold + blend out. Changing only the blends keeps the hold.
+                if (req.Template == "FocusCut")
+                {
+                    float curHold = Mathf.Max(0f, curDuration - curBlendIn - curBlendOut);
+                    float hold    = newDuration.HasValue && newDuration.Value > 0f ? newDuration.Value : curHold;
+                    duration      = blendIn + hold + blendOut;
+                }
+
                 bool durationChanged = newDuration.HasValue;
                 bool blendChanged    = newBlendIn.HasValue || newBlendOut.HasValue ||
                                        newEaseIn.HasValue  || newEaseOut.HasValue;
