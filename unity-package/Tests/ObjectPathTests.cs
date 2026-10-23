@@ -138,6 +138,43 @@ namespace UnityMcpBridge.Editor.Tests
             }
         }
 
+        [Test]
+        public void MoveObjects_ParentAndChild_StayTogether_AndReturnNewPaths()
+        {
+            var main = OpenSavedMainScene();
+            try
+            {
+                var other = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+                Assert.IsTrue(EditorSceneManager.SaveScene(other, TempFolder + "/PathTestOther.unity"));
+                SceneManager.SetActiveScene(main);
+
+                var parent = new GameObject("PathTestGroup");
+                var child  = new GameObject("PathTestItem");
+                child.transform.SetParent(parent.transform, false);
+
+                var task = SceneManagementHandler.ManageSceneAsync(new ManageSceneRequest
+                {
+                    Operation       = "move_objects",
+                    ObjectPaths     = new[] { "PathTestGroup", "/PathTestGroup/PathTestItem" },
+                    TargetSceneName = "PathTestOther",
+                });
+                MainThreadDispatcher.Tick();
+
+                Assert.IsTrue(task.Result.Success, task.Result.Error?.Message);
+                var data = (SceneMoveObjectsData)task.Result.Data;
+                Assert.IsEmpty(data.Warnings);
+                Assert.AreSame(parent.transform, child.transform.parent);
+                Assert.AreEqual(other, child.scene);
+                CollectionAssert.AreEqual(
+                    new[] { "PathTestOther:PathTestGroup", "PathTestOther:PathTestGroup/PathTestItem" },
+                    System.Array.ConvertAll(data.Moved, m => m.Path));
+            }
+            finally
+            {
+                CloseTempScenes();
+            }
+        }
+
         [TestCase(false)]
         [TestCase(true)]
         public void CreateScene_KeepsTheActiveScene_UnlessSetActive(bool setActive)

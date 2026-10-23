@@ -219,7 +219,9 @@ async def manage_scene(
         object_paths      : required — list of hierarchy paths to move
         target_scene_name : required — name of the destination scene (must be loaded)
         Objects with parents NOT in the move list are detached first (a warning is
-        returned for each detachment).
+        returned for each detachment). An object whose parent is also in the list
+        moves with it and stays under it. The result gives each object's path
+        after the move.
 
     "create"
         Create a new empty scene asset and load it additively, alongside the

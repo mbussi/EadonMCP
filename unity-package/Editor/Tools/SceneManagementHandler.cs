@@ -167,49 +167,63 @@ namespace UnityMcpBridge.Editor.Tools
                     $"Target scene '{req.TargetSceneName}' is not currently loaded. " +
                     "Use manage_scene with operation=load first.");
 
-            var moved   = new List<MovedObjectData>(req.ObjectPaths.Length);
             var warnings = new List<string>();
-            var pathSet  = new HashSet<string>(req.ObjectPaths);
 
+            // Resolve every path before moving anything: a move changes the paths of what
+            // was moved (scene prefix), so paths cannot be compared once moving has started.
+            var objects = new List<GameObject>(req.ObjectPaths.Length);
             foreach (var path in req.ObjectPaths)
             {
                 var go = PlacementHandler.FindByPath(path);
                 if (go == null)
-                {
                     warnings.Add($"Object not found: '{path}' — skipped.");
+                else if (!objects.Contains(go))
+                    objects.Add(go);
+            }
+            var selected = new HashSet<GameObject>(objects);
+
+            var moved = new List<(GameObject go, string fromScene)>(objects.Count);
+            foreach (var go in objects)
+            {
+                var fromScene = go.scene.name;
+
+                // An object whose parent (or a higher ancestor) is also in the list goes
+                // with that ancestor and keeps its place under it.
+                if (HasSelectedAncestor(go.transform, selected))
+                {
+                    moved.Add((go, fromScene));
                     continue;
                 }
 
-                // Objects with parents in other scenes must be detached first,
-                // unless the parent is also in the move list.
+                // Only root objects can change scene: other objects are detached first.
                 if (go.transform.parent != null)
                 {
                     var parentPath = PlacementHandler.GetPath(go.transform.parent.gameObject);
-                    if (!pathSet.Contains(parentPath))
-                    {
-                        Undo.SetTransformParent(go.transform, null, "MCP Detach for scene move");
-                        warnings.Add(
-                            $"'{path}' was detached from parent '{parentPath}' before moving — " +
-                            "parent was not included in object_paths.");
-                    }
+                    warnings.Add(
+                        $"'{PlacementHandler.GetPath(go)}' was detached from parent '{parentPath}' before moving — " +
+                        "parent was not included in object_paths.");
+                    Undo.SetTransformParent(go.transform, null, "MCP Detach for scene move");
                 }
 
-                var fromScene = go.scene.name;
                 // Undo.MoveGameObjectToScene records the scene change itself (RecordObject does not).
                 Undo.MoveGameObjectToScene(go, targetScene, "MCP Move to Scene");
+                moved.Add((go, fromScene));
+            }
 
-                moved.Add(new MovedObjectData
+            // Paths after the move, so the caller can use them straight away.
+            var movedData = new List<MovedObjectData>(moved.Count);
+            foreach (var (go, fromScene) in moved)
+                movedData.Add(new MovedObjectData
                 {
-                    Path      = path,
+                    Path      = PlacementHandler.GetPath(go),
                     FromScene = fromScene,
                     ToScene   = targetScene.name
                 });
-            }
 
             return McpResponse.Ok(new SceneMoveObjectsData
             {
-                MovedCount = moved.Count,
-                Moved      = moved.ToArray(),
+                MovedCount = movedData.Count,
+                Moved      = movedData.ToArray(),
                 Warnings   = warnings.ToArray()
             });
         }
@@ -281,6 +295,13 @@ namespace UnityMcpBridge.Editor.Tools
         // -----------------------------------------------------------------------
         // Helpers
         // -----------------------------------------------------------------------
+
+        private static bool HasSelectedAncestor(Transform t, HashSet<GameObject> selected)
+        {
+            for (var p = t.parent; p != null; p = p.parent)
+                if (selected.Contains(p.gameObject)) return true;
+            return false;
+        }
 
         private static void CreateFolderRecursive(string path)
         {
