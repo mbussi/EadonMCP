@@ -12,7 +12,7 @@ namespace LevelScaffold
     /// The hierarchy path of an anchor (e.g. /ForgottenTunnels/Zone1/step_05)
     /// is what the MCP tools use to reference positions for marker placement.
     /// </summary>
-    [AddComponentMenu("Level Scaffold/Scaffold Anchor")]
+    [AddComponentMenu("Eadon/MCP Bridge/Level Scaffolding/Scaffold Anchor")]
     public class ScaffoldAnchor : MonoBehaviour
     {
         [Tooltip("Controls gizmo shape and colour in the scene view.")]

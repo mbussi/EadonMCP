@@ -32,7 +32,7 @@ The quality of Claude's suggestions improves significantly when you author metad
 
 ### SceneContext — describe your level
 
-Create one via **Assets > Create > MCP Bridge > Scene Context**, then assign it in the `McpBridgeSettings` asset (`Assets/UnityMCP/Source/Editor/McpBridgeSettings.asset`).
+Create one via **Assets > Create > Eadon > MCP Bridge > Scene Context**, then assign it in **Project Settings > Eadon > MCP Bridge**.
 
 | Field | What to write |
 |---|---|
@@ -46,7 +46,7 @@ Create one via **Assets > Create > MCP Bridge > Scene Context**, then assign it 
 
 ### PrefabMetadata — describe your prefabs
 
-Create one via **Assets > Create > MCP Bridge > Prefab Metadata**, and keep it next to its prefab in the project folder.
+Create one via **Assets > Create > Eadon > MCP Bridge > Prefab Metadata**, and keep it next to its prefab in the project folder.
 
 The most important field is **Description** — write it as you would for a colleague who has never seen the asset:
 
@@ -274,7 +274,7 @@ Propose a lighting setup appropriate for a late-afternoon Victorian city scene. 
 
 ### Step 2 — Review in the Operation Queue window
 
-Open **Window > MCP Bridge > Operation Queue** in Unity. You will see the proposal with each operation listed and a plain-English description of what it will do.
+Open **Eadon > MCP Bridge > Operation Queue** in Unity. You will see the proposal with each operation listed and a plain-English description of what it will do.
 
 - **Execute All** — applies all operations as a single undoable action
 - **Discard** — removes the proposal without making any changes
@@ -378,7 +378,7 @@ main square. I trust your judgment on which assets to use.
 
 | Problem | Solution |
 |---|---|
-| Claude says it can't connect to Unity | Make sure Unity is open. Check the Editor Console for `[MCP Bridge] Listening on port 11000`. If absent, check that `McpBridgeSettings.startOnLoad` is enabled. |
+| Claude says it can't connect to Unity | Make sure Unity is open. Check the Editor Console for `[MCP Bridge] Listening on port 11000`. If absent, check that **Start On Load** is ticked in **Project Settings > Eadon > MCP Bridge**. |
 | Tools are not available | Start a new conversation in Claude Desktop. Tools are only loaded at conversation start. |
 | Claude placed an object in the wrong place | Use Ctrl+Z in Unity to undo. Give Claude the corrected position and ask it to try again. |
 | The Operation Queue window is empty | The proposal may have expired due to a script recompile. Proposals do not survive domain reloads — ask Claude to resubmit. |
@@ -402,5 +402,5 @@ main square. I trust your judgment on which assets to use.
 | Line objects up | *"Place [prefab] every [n]m along the path [waypoints]."* |
 | Tile a floor | *"Fill a [C]×[R] grid of [prefab] at [origin], cell size [w]×[d]m."* |
 | Get a plan first | *"Propose [description of what you want]. Don't make changes yet."* |
-| Approve a proposal | Click **Execute All** in Window > MCP Bridge > Operation Queue |
+| Approve a proposal | Click **Execute All** in Eadon > MCP Bridge > Operation Queue |
 | Undo everything | **Ctrl+Z** in Unity |

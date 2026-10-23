@@ -11,7 +11,7 @@ using UnityEngine.UIElements;
 namespace UnityMcpBridge.Editor.Agent
 {
     /// <summary>
-    /// Embedded agent chat window. Open via Window > MCP Bridge > Agent Chat.
+    /// Embedded agent chat window. Open via Eadon > MCP Bridge > Agent Chat.
     ///
     /// Talks directly to the Anthropic or OpenAI-compatible API and executes
     /// tool calls against the running MCP bridge HTTP server — no Python server
@@ -26,7 +26,7 @@ namespace UnityMcpBridge.Editor.Agent
         // Unity menu entry
         // -----------------------------------------------------------------------
 
-        [MenuItem("Window/MCP Bridge/Agent Chat")]
+        [MenuItem("Eadon/MCP Bridge/Agent Chat")]
         public static void ShowWindow()
         {
             var window = GetWindow<AgentChatWindow>();

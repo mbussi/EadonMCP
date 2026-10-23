@@ -13,7 +13,7 @@ namespace LevelScaffold
     /// as a JSON string. This data is preserved as design intent and consumed by your game
     /// systems at runtime, or by the bake handler when it instantiates and configures prefabs.
     /// </summary>
-    [AddComponentMenu("Level Scaffold/Gameplay Marker")]
+    [AddComponentMenu("Eadon/MCP Bridge/Level Scaffolding/Gameplay Marker")]
     public class GameplayMarker : MonoBehaviour
     {
         [Tooltip("Type of functional intent this marker represents.")]

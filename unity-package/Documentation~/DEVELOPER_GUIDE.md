@@ -207,7 +207,7 @@ public class RenameResultData
 
 ### 4.2 Write the handler method
 
-Handlers live in `Assets/UnityMCP/Source/Editor/Tools/`. Add to an existing handler class or create a new one.
+Handlers live in `Editor/Tools/` in the `com.eadon.mcp-bridge` package (`unity-package/` in the repo). Add to an existing handler class or create a new one.
 
 **POST handler pattern:**
 
@@ -321,6 +321,35 @@ if (method == "GET" && path == "/scene/find")
 ```
 
 **That's all four steps.** Rebuild in Unity and restart Claude Desktop — the new tool appears automatically.
+
+### 4.4 Adding tools from another assembly (extensions)
+
+Code that depends on something the bridge must not require (PCGFramework, ECC, …) registers its routes from its own assembly instead of editing `McpRouter.cs`:
+
+```csharp
+[InitializeOnLoad]
+internal static class MyRoutes
+{
+    static MyRoutes()
+    {
+        McpRouteRegistry.Register("POST", "/tools/my/thing",
+            async request => await MyHandler.DoThingAsync(
+                await McpRouter.ParseBodyAsync<MyThingRequest>(request)),
+            "My Extension");
+    }
+}
+```
+
+The router checks its own routes first and then the registry, so an extension cannot replace a bridge route. Give the extension's assembly definition a version define on the bridge package and make it a define constraint, so it only compiles when the bridge is installed:
+
+```json
+"defineConstraints": [ "EADON_MCP_BRIDGE" ],
+"versionDefines": [
+    { "name": "com.eadon.mcp-bridge", "expression": "0.1.0", "define": "EADON_MCP_BRIDGE" }
+]
+```
+
+The PCG tools are the reference example: `extensions/pcg/` in the repo, copied next to PCGFramework in each project that has it.
 
 ---
 

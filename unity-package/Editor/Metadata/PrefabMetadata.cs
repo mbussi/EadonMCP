@@ -14,7 +14,7 @@ namespace UnityMcpBridge.Editor.Metadata
     /// The richer the metadata — especially the Description field — the better
     /// the AI's placement decisions will be.
     /// </summary>
-    [CreateAssetMenu(menuName = "MCP Bridge/Prefab Metadata")]
+    [CreateAssetMenu(menuName = "Eadon/MCP Bridge/Prefab Metadata")]
     public class PrefabMetadata : ScriptableObject
     {
         [Header("Identity")]

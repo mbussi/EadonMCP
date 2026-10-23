@@ -5,13 +5,13 @@ namespace UnityMcpBridge.Editor.Metadata
     /// <summary>
     /// Describes a level's design intent so that the AI can make contextually
     /// appropriate choices. Create one per scene (or share one across a group
-    /// of related scenes) and assign it in McpBridgeSettings.
+    /// of related scenes) and assign it in Project Settings > Eadon > MCP Bridge.
     ///
     /// The AI reads this at the start of every session before selecting prefabs
     /// or proposing changes. The more specific the Notes field, the better the
     /// AI's suggestions will be.
     /// </summary>
-    [CreateAssetMenu(menuName = "MCP Bridge/Scene Context")]
+    [CreateAssetMenu(menuName = "Eadon/MCP Bridge/Scene Context")]
     public class SceneContext : ScriptableObject
     {
         [Header("Identity")]

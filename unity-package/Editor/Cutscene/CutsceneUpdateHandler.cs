@@ -131,6 +131,7 @@ namespace UnityMcpBridge.Editor.Tools
 
                 // Get current values from the Cinemachine clip
                 float curDuration = 0f, curBlendIn = 0f, curBlendOut = 0f;
+#if CM2 || CM3
                 var cineTrack = GetTrack<CinemachineTrack>(timeline);
                 if (cineTrack != null)
                 {
@@ -142,6 +143,7 @@ namespace UnityMcpBridge.Editor.Tools
                         curBlendOut = (float)clips[0].easeOutDuration;
                     }
                 }
+#endif
 
                 float duration = newDuration ?? curDuration;
                 float blendIn  = newBlendIn  ?? newEaseIn  ?? curBlendIn;
@@ -221,6 +223,7 @@ namespace UnityMcpBridge.Editor.Tools
             List<string>  warnings)
         {
             // Cinemachine clip
+#if CM2 || CM3
             var cineTrack = GetTrack<CinemachineTrack>(timeline);
             if (cineTrack != null)
             {
@@ -237,6 +240,9 @@ namespace UnityMcpBridge.Editor.Tools
             {
                 warnings.Add("Could not find CinemachineTrack to update duration.");
             }
+#else
+            warnings.Add("Cinemachine is not installed, so the camera clip timing was not updated.");
+#endif
 
             // ActivationTrack
             var activationTrack = GetTrack<ActivationTrack>(timeline);

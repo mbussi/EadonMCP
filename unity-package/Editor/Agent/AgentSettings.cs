@@ -11,11 +11,11 @@ namespace UnityMcpBridge.Editor.Agent
 
     /// <summary>
     /// Configuration for the embedded agent chat window.
-    /// Create via Assets > Create > MCP Bridge > Agent Settings.
+    /// Create via Assets > Create > Eadon > MCP Bridge > Agent Settings.
     /// Multiple instances can exist — one per provider or model preset.
-    /// Assign the active one in Window > MCP Bridge > Agent Chat > Settings.
+    /// Assign the active one in Eadon > MCP Bridge > Agent Chat > Settings.
     /// </summary>
-    [CreateAssetMenu(menuName = "MCP Bridge/Agent Settings")]
+    [CreateAssetMenu(menuName = "Eadon/MCP Bridge/Agent Settings")]
     public class AgentSettings : ScriptableObject
     {
         // -----------------------------------------------------------------------
@@ -105,7 +105,7 @@ namespace UnityMcpBridge.Editor.Agent
 
         [Header("Bridge")]
         [Tooltip("Port the Unity MCP HTTP bridge is listening on. " +
-                 "Must match McpBridgeSettings.port (default 11000).")]
+                 "Must match the port in Project Settings > Eadon > MCP Bridge (default 11000).")]
         public int bridgePort = 11000;
 
         // -----------------------------------------------------------------------

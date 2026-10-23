@@ -1,0 +1,29 @@
+{
+    "name": "UnityMcpBridge.Pcg.Editor",
+    "rootNamespace": "UnityMcpBridge.Editor",
+    "references": [
+        "UnityMcpBridge.Editor",
+        "PCGFramework.Runtime",
+        "PCGFramework.Editor",
+        "Newtonsoft.Json"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "EADON_MCP_BRIDGE"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.eadon.mcp-bridge",
+            "expression": "0.1.0",
+            "define": "EADON_MCP_BRIDGE"
+        }
+    ],
+    "noEngineReferences": false
+}

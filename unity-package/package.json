@@ -1,0 +1,16 @@
+{
+  "name": "com.eadon.mcp-bridge",
+  "version": "0.1.0",
+  "displayName": "Eadon MCP Bridge",
+  "description": "Lets AI agents work in the Unity Editor over MCP: an HTTP bridge inside the Editor that the Eadon MCP server (Python) calls, an in-editor agent chat, Level Scaffolding, and semantic metadata for prefabs and scenes.",
+  "unity": "6000.3",
+  "author": {
+    "name": "Max Bussi"
+  },
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.2.1",
+    "com.unity.timeline": "1.8.7",
+    "com.unity.splines": "2.6.0"
+  },
+  "keywords": ["mcp", "ai", "agent", "editor", "level design"]
+}

@@ -137,8 +137,8 @@ namespace UnityMcpBridge.Editor.Tools
                 if (context == null)
                     return McpResponse.Fail("NO_SCENE_CONTEXT",
                         "No SceneContext asset is configured or discoverable. " +
-                        "Create one via Assets > Create > MCP Bridge > Scene Context, " +
-                        "then assign it in McpBridgeSettings.");
+                        "Create one via Assets > Create > Eadon > MCP Bridge > Scene Context, " +
+                        "then assign it in Project Settings > Eadon > MCP Bridge.");
 
                 var contextPath   = AssetDatabase.GetAssetPath(context);
                 var updatedFields = new List<string>();

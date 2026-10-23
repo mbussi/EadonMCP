@@ -9,11 +9,11 @@ namespace UnityMcpBridge.Editor.UI
     /// Displays pending MCP proposals and lets the level designer approve or
     /// discard them before any changes are applied to the scene.
     ///
-    /// Open via: Window > MCP Bridge > Operation Queue
+    /// Open via: Eadon > MCP Bridge > Operation Queue
     /// </summary>
     public class McpOperationQueueWindow : EditorWindow
     {
-        [MenuItem("Window/MCP Bridge/Operation Queue")]
+        [MenuItem("Eadon/MCP Bridge/Operation Queue")]
         public static void ShowWindow() =>
             GetWindow<McpOperationQueueWindow>("MCP Operation Queue");
 

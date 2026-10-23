@@ -19,7 +19,7 @@ namespace UnityMcpBridge.Editor.Core
     /// the Python MCP server does not know which project it is talking to. The
     /// Python server reads the same file, so local use needs no configuration.
     /// A client on another machine sets UNITY_MCP_TOKEN to the value shown by
-    /// Window > MCP Bridge > Copy Bridge Token.
+    /// Eadon > MCP Bridge > Copy Bridge Token.
     ///
     /// Callers send it as:  Authorization: Bearer &lt;token&gt;
     /// </summary>
@@ -86,14 +86,14 @@ namespace UnityMcpBridge.Editor.Core
         // Menu items
         // -----------------------------------------------------------------------
 
-        [MenuItem("Window/MCP Bridge/Copy Bridge Token")]
+        [MenuItem("Eadon/MCP Bridge/Copy Bridge Token")]
         private static void CopyTokenMenu()
         {
             EditorGUIUtility.systemCopyBuffer = Token;
             Debug.Log($"[MCP Bridge] Bridge token copied to the clipboard. It is stored in {TokenFilePath}.");
         }
 
-        [MenuItem("Window/MCP Bridge/Regenerate Bridge Token")]
+        [MenuItem("Eadon/MCP Bridge/Regenerate Bridge Token")]
         private static void RegenerateTokenMenu()
         {
             if (!EditorUtility.DisplayDialog(

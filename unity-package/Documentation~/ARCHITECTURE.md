@@ -293,11 +293,11 @@ Every request must carry `Authorization: Bearer <token>`. Unity writes the token
 
 The bridge also refuses any request with an `Origin` header (it comes from a web page, never from an MCP client) and any POST that isn't `application/json`. Without these checks, any web page open in a browser on the same machine could write a C# file into `Assets/` and trigger a refresh.
 
-The listener binds to `localhost` unless **Allow Remote Connections** is ticked in `McpBridgeSettings` (see `REMOTE_SETUP.md`).
+The listener binds to `localhost` unless **Allow Remote Connections** is ticked in **Project Settings > Eadon > MCP Bridge** (see `REMOTE_SETUP.md`).
 
 ### Base URL
 
-`http://localhost:{port}` — default port `11000`, configurable in `McpBridgeSettings`.
+`http://localhost:{port}` — default port `11000`, configurable in **Project Settings > Eadon > MCP Bridge**.
 
 ### Request/Response envelope
 
@@ -456,7 +456,7 @@ Assets/Prefabs/City/Townhouse_A.metadata.asset
 
 ### SceneContext ScriptableObject
 
-One per level (or scene). Referenced from `McpBridgeSettings` or auto-discovered by name convention.
+One per level (or scene). Referenced from the bridge settings (**Project Settings > Eadon > MCP Bridge**) or auto-discovered by name convention.
 
 ```csharp
 [CreateAssetMenu(menuName = "MCP Bridge/Scene Context")]
@@ -747,15 +747,17 @@ When Claude Code is opened with the Unity project as the workspace root, the MCP
 
 ### McpBridgeSettings (Unity)
 
-A `ScriptableObject` at a well-known path (`Assets/UnityMcpBridge/Editor/McpBridgeSettings.asset`) exposes configuration without requiring code changes:
+A project setting, stored in `ProjectSettings/EadonMcpBridgeSettings.asset` and edited in **Project Settings > Eadon > MCP Bridge**. It lives under ProjectSettings, not Assets, because the bridge is a package and these values belong to the project:
 
 ```csharp
-public class McpBridgeSettings : ScriptableObject
+[FilePath("ProjectSettings/EadonMcpBridgeSettings.asset", FilePathAttribute.Location.ProjectFolder)]
+public class McpBridgeSettings : ScriptableSingleton<McpBridgeSettings>
 {
-    public int port = 11000;
+    public int  port = 11000;
+    public bool allowRemoteConnections = false;
     public bool startOnLoad = true;
-    public bool requireApprovalForDestructive = true;
-    public SceneContext defaultSceneContext;
+    public SceneContext sceneContext;
+    public List<ZoneContextEntry> zoneContexts;
 }
 ```
 

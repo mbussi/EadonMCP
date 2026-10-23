@@ -83,17 +83,7 @@ namespace UnityMcpBridge.Editor.Core
                 if (method == "POST" && path == "/tools/procedural/fill_grid")
                     return await ProceduralHandler.FillGridAsync(await ParseBodyAsync<FillGridRequest>(request));
 
-                // PCG
-                if (method == "GET" && path == "/assets/pcg/node-catalog")
-                    return await PcgHandler.GetNodeCatalogAsync();
-                if (method == "GET" && path == "/assets/pcg/graphs")
-                    return await PcgHandler.GetGraphListAsync();
-                if (method == "POST" && path == "/tools/pcg/validate-graph")
-                    return await PcgHandler.ValidateGraphAsync(await ParseBodyAsync<PcgValidateRequest>(request));
-                if (method == "POST" && path == "/tools/pcg/create-graph")
-                    return await PcgHandler.CreateGraphAsync(await ParseBodyAsync<PcgCreateRequest>(request));
-                if (method == "POST" && path == "/tools/pcg/search-prefabs")
-                    return await PcgHandler.SearchPrefabsAsync(await ParseBodyAsync<PcgSearchPrefabsRequest>(request));
+                // PCG tools are served by the PCG extension (extensions/pcg), through McpRouteRegistry.
 
                 // Components
                 if (method == "GET" && path == "/assets/components/catalog")
@@ -256,6 +246,10 @@ namespace UnityMcpBridge.Editor.Core
                     return await ProjectFileHandler.ListFilesAsync(
                         await ParseBodyAsync<ListProjectFilesRequest>(request));
 
+                // Routes registered by extensions (McpRouteRegistry)
+                if (McpRouteRegistry.TryGetHandler(method, path, out var extensionHandler))
+                    return await extensionHandler(request);
+
                 return McpResponse.Fail("NOT_FOUND", $"No route for {method} {path}");
             }
             catch (Exception ex)
@@ -278,7 +272,8 @@ namespace UnityMcpBridge.Editor.Core
                 });
             });
 
-        internal static async Task<T> ParseBodyAsync<T>(HttpListenerRequest request) where T : new()
+        /// <summary>Reads the request's JSON body as T (a new T when the body is empty). For bridge and extension handlers.</summary>
+        public static async Task<T> ParseBodyAsync<T>(HttpListenerRequest request) where T : new()
         {
             if (request.ContentLength64 == 0) return new T();
             using var reader = new StreamReader(request.InputStream, Encoding.UTF8);

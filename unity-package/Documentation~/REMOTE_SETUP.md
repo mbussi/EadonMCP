@@ -192,14 +192,14 @@ machine's bridge token in `UNITY_MCP_TOKEN`:
 connections.** By default it only listens on `localhost`. To change that, on
 Machine B:
 
-1. Select `McpBridgeSettings` and tick **Allow Remote Connections**.
-2. Run **Window > MCP Bridge > Restart Listener**. The console warns that the
+1. Open **Project Settings > Eadon > MCP Bridge** and tick **Allow Remote Connections**.
+2. Click **Restart Listener** on that page (or run **Eadon > MCP Bridge > Restart Listener**). The console warns that the
    bridge is listening on all network interfaces.
-3. Run **Window > MCP Bridge > Copy Bridge Token** and paste the token into
+3. Run **Eadon > MCP Bridge > Copy Bridge Token** and paste the token into
    `UNITY_MCP_TOKEN` on Machine A.
 4. Allow port 11000 (or your bridge port) through Machine B's firewall.
 
-Every Unity project on a machine shares the same bridge token. **Window > MCP
+Every Unity project on a machine shares the same bridge token. **Eadon > MCP
 Bridge > Regenerate Bridge Token** replaces it; clients on other machines then
 need the new value.
 
@@ -274,7 +274,7 @@ the agent settings' **Base URL** to that machine (for example
 - The MCP server reached Unity but sent no bridge token, or the wrong one
 - Same machine: check `~/.unity-mcp/bridge-token` exists (Unity creates it when
   the bridge starts) and that `UNITY_MCP_TOKEN` isn't set to an old value
-- Other machine: set `UNITY_MCP_TOKEN` to the token from **Window > MCP Bridge >
+- Other machine: set `UNITY_MCP_TOKEN` to the token from **Eadon > MCP Bridge >
   Copy Bridge Token** on the Unity machine; after a regenerate, copy it again
 
 **"Cannot reach Unity Editor" error from a tool**

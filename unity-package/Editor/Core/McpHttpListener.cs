@@ -128,7 +128,7 @@ namespace UnityMcpBridge.Editor.Core
         public static bool IsRunning => _running;
 
         /// <summary>Restarts the listener so port and Allow Remote Connections changes take effect.</summary>
-        [MenuItem("Window/MCP Bridge/Restart Listener")]
+        [MenuItem("Eadon/MCP Bridge/Restart Listener")]
         public static void Restart()
         {
             Stop();
@@ -205,7 +205,7 @@ namespace UnityMcpBridge.Editor.Core
                 return McpResponse.Fail("UNAUTHORIZED",
                     "Missing or wrong bridge token. Send 'Authorization: Bearer <token>'. " +
                     $"On the Unity machine the token is in {McpBridgeAuth.TokenFilePath}; " +
-                    "Window > MCP Bridge > Copy Bridge Token copies it. " +
+                    "Eadon > MCP Bridge > Copy Bridge Token copies it. " +
                     "A client on another machine sets it in UNITY_MCP_TOKEN.");
 
             if (request.HttpMethod.Equals("POST", StringComparison.OrdinalIgnoreCase))

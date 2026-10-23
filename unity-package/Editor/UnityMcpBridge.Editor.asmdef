@@ -3,8 +3,7 @@
     "rootNamespace": "UnityMcpBridge.Editor",
     "references": [
         "Newtonsoft.Json",
-        "PCGFramework.Runtime",
-        "PCGFramework.Editor",
+        "UnityMcpBridge.Runtime",
         "LevelScaffold",
         "LevelScaffold.Editor",
         "Unity.Timeline",

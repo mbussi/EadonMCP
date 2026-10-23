@@ -11,7 +11,7 @@ namespace LevelScaffold
     /// Refresh Anchors button or the MCP create_zone_scaffold tool. ScaffoldZone itself
     /// does not generate anchors — this keeps the runtime component free of Editor dependencies.
     /// </summary>
-    [AddComponentMenu("Level Scaffold/Scaffold Zone")]
+    [AddComponentMenu("Eadon/MCP Bridge/Level Scaffolding/Scaffold Zone")]
     public class ScaffoldZone : MonoBehaviour
     {
         [Tooltip("Determines anchor generation pattern, gizmo shape, and gizmo colour.")]

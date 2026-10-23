@@ -52,8 +52,8 @@ namespace UnityMcpBridge.Editor.Tools
                         configured = false,
                         message =
                             "No SceneContext asset is configured. " +
-                            "Create one via Assets > Create > MCP Bridge > Scene Context, " +
-                            "then assign it to the SceneContext field in McpBridgeSettings."
+                            "Create one via Assets > Create > Eadon > MCP Bridge > Scene Context, " +
+                            "then assign it to Scene Context in Project Settings > Eadon > MCP Bridge."
                     });
 
                 return McpResponse.Ok(new SceneContextData

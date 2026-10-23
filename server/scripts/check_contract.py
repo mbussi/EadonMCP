@@ -14,10 +14,14 @@ in this repo, then reports:
     schema keys the request type does not read
   - Python tools the agent does not offer
 
-Usage:
-    uv run python scripts/check_contract.py "/path/to/Unity MCP Claude"
+Usage (from server/):
+    uv run python scripts/check_contract.py            # the repo's unity-package and extensions
+    uv run python scripts/check_contract.py <path>     # another copy of the package
 
-The path can be the Unity project, its Assets folder, or Assets/UnityMCP.
+The path can be the package folder (the one with package.json and Editor/), the
+repository root, or an older project layout (Assets/UnityMCP with Source/Editor).
+Routes that extensions register through McpRouteRegistry are read from the
+repository's extensions/ folder.
 Exits with 1 when it finds a mismatch, 0 otherwise. Coverage gaps (routes
 without a Python tool, Python tools the agent lacks) are listed but do not
 fail the check.
@@ -34,7 +38,11 @@ import re
 import sys
 from pathlib import Path
 
-PY_ROOT = Path(__file__).resolve().parent.parent / "src" / "unity_mcp"
+SERVER_ROOT = Path(__file__).resolve().parent.parent
+PY_ROOT = SERVER_ROOT / "src" / "unity_mcp"
+REPO_ROOT = SERVER_ROOT.parent
+DEFAULT_PACKAGE = REPO_ROOT / "unity-package"
+EXTENSIONS_ROOT = REPO_ROOT / "extensions"
 
 
 # ---------------------------------------------------------------------------
@@ -42,11 +50,13 @@ PY_ROOT = Path(__file__).resolve().parent.parent / "src" / "unity_mcp"
 # ---------------------------------------------------------------------------
 
 def find_editor_folder(path: Path) -> Path:
-    for candidate in (path, path / "UnityMCP", path / "Assets" / "UnityMCP"):
-        editor = candidate / "Source" / "Editor"
+    candidates = [path / "Editor", path / "unity-package" / "Editor"]
+    for old in (path, path / "UnityMCP", path / "Assets" / "UnityMCP"):
+        candidates.append(old / "Source" / "Editor")
+    for editor in candidates:
         if (editor / "Core" / "McpRouter.cs").exists():
             return editor
-    sys.exit(f"Could not find Source/Editor/Core/McpRouter.cs under {path}")
+    sys.exit(f"Could not find Editor/Core/McpRouter.cs under {path}")
 
 
 def strip_comments(text: str) -> str:
@@ -65,10 +75,11 @@ def matching_brace(text: str, start: int, open_ch: str = "{", close_ch: str = "}
     return i
 
 
-def parse_classes(editor: Path) -> dict[str, dict]:
+def parse_classes(folders: list[Path]) -> dict[str, dict]:
     """class name -> {"base": name or None, "fields": [json names]}"""
     classes: dict[str, dict] = {}
-    for file in editor.rglob("*.cs"):
+    files = [f for folder in folders if folder.exists() for f in folder.rglob("*.cs")]
+    for file in files:
         text = strip_comments(file.read_text(encoding="utf-8", errors="replace"))
         for m in re.finditer(r"\bclass\s+(\w+)\s*(?::\s*([\w.]+))?[^{;]*\{", text):
             body_end = matching_brace(text, m.end())
@@ -95,7 +106,7 @@ def all_fields(classes: dict[str, dict], name: str) -> list[str]:
     return fields
 
 
-def parse_routes(editor: Path) -> dict[tuple[str, str], dict]:
+def parse_routes(editor: Path, extensions: Path) -> dict[tuple[str, str], dict]:
     text = strip_comments((editor / "Core" / "McpRouter.cs").read_text(encoding="utf-8"))
     routes = {}
     pattern = r'method\s*==\s*"(\w+)"\s*&&\s*path\s*==\s*"([^"]+)"\s*\)\s*return\s+await\s+([\w.]+)\(([^;]*);'
@@ -107,6 +118,18 @@ def parse_routes(editor: Path) -> dict[tuple[str, str], dict]:
             "request": req.group(1) if req else None,
             "query": re.findall(r'QueryString\["(\w+)"\]', body),
         }
+    # Routes registered by extensions: McpRouteRegistry.Register("METHOD", "/path", handler, owner);
+    if extensions.exists():
+        for file in extensions.rglob("*.cs"):
+            ext = strip_comments(file.read_text(encoding="utf-8", errors="replace"))
+            for m in re.finditer(r'McpRouteRegistry\.Register\(\s*"(\w+)"\s*,\s*"([^"]+)"\s*,(.*?)\);', ext, flags=re.S):
+                body = m.group(3)
+                req = re.search(r"ParseBodyAsync<(\w+)>", body)
+                routes[(m.group(1).upper(), m.group(2))] = {
+                    "handler": f"{file.parent.parent.name} extension",
+                    "request": req.group(1) if req else None,
+                    "query": re.findall(r'QueryString\["(\w+)"\]', body),
+                }
     return routes
 
 
@@ -170,11 +193,12 @@ def reads(fields: list[str], key: str) -> bool:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("unity_path", type=Path, help="Unity project, its Assets folder, or Assets/UnityMCP")
+    parser.add_argument("unity_path", type=Path, nargs="?", default=DEFAULT_PACKAGE,
+                        help="the package folder (default: the repository's unity-package)")
     editor = find_editor_folder(parser.parse_args().unity_path)
 
-    classes = parse_classes(editor)
-    routes = parse_routes(editor)
+    classes = parse_classes([editor, EXTENSIONS_ROOT])
+    routes = parse_routes(editor, EXTENSIONS_ROOT)
     route_map, schemas = parse_agent(editor)
     calls = parse_python_calls()
     registered = registered_tools()
