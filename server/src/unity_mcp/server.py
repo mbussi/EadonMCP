@@ -281,3 +281,7 @@ def main() -> None:
     )
     print(f"[unity-mcp] Client URL: http://{shown_host}:{args.port}{endpoint}", flush=True)
     run_network(args.transport, args.host, args.port, token)
+
+
+if __name__ == "__main__":
+    main()
