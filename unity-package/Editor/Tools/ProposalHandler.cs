@@ -1,24 +1,41 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityMcpBridge.Editor.Core;
-using UnityMcpBridge.Editor.UI;
 
 namespace UnityMcpBridge.Editor.Tools
 {
     /// <summary>
-    /// Handles the proposal workflow: submit, execute, discard, and list.
+    /// The proposal workflow: submit, approve, execute, discard, and list.
     ///
-    /// ExecuteProposalAsync routes each operation back through the existing
-    /// Phase 3 / Phase 4 handlers by matching the tool name to the correct
-    /// request type. All operations in a proposal execute as a single Undo group.
+    /// A proposal is a review step. Claude (or dress_area) submits a list of
+    /// operations; the user reviews them in the Operation Queue window and either
+    /// executes the proposal there or approves it, after which execute_proposal may
+    /// run it. execute_proposal refuses a proposal the user has not approved.
+    ///
+    /// Execution:
+    ///   • runs once: the proposal is marked executing before its first operation, so
+    ///     a second execute is refused;
+    ///   • runs each operation exactly as the tool would run if called directly (built-in
+    ///     tools through McpRouter, extension tools through their handler), with
+    ///     dry_run forced off;
+    ///   • is one undo step: the undo group at the start is saved and everything after
+    ///     it is collapsed into it;
+    ///   • is all or nothing: at the first failed operation everything the proposal did
+    ///     is undone, and the proposal is marked failed with that operation and its error.
+    ///
+    /// Only tools whose changes Undo reverses can be part of a proposal
+    /// (McpToolCatalog.ProposalRefusal); others are refused when the proposal is submitted.
     /// </summary>
     public static class ProposalHandler
     {
+        private const string QueueMenu = "Eadon > MCP Bridge > Operation Queue";
+
         // -----------------------------------------------------------------------
         // POST /tools/proposal/submit
         // -----------------------------------------------------------------------
@@ -32,88 +49,224 @@ namespace UnityMcpBridge.Editor.Tools
                 if (req.Operations == null || req.Operations.Length == 0)
                     return McpResponse.Fail("INVALID_PARAMS", "operations must not be empty.");
 
-                // Convert incoming DTOs to domain objects
-                var items = Array.ConvertAll(req.Operations, op => new ProposalOperationItem
-                {
-                    Id          = op.Id,
-                    Tool        = op.Tool,
-                    Description = op.Description,
-                    Params      = op.Params
-                });
+                var problems = CheckOperations(req.Operations);
+                if (problems != null)
+                    return McpResponse.Fail("INVALID_OPERATION", problems);
 
-                var proposal = ProposalStore.Add(req.Summary, items);
-
-                return McpResponse.Ok(new ProposalSubmittedData
-                {
-                    ProposalId     = proposal.Id,
-                    Summary        = proposal.Summary,
-                    OperationCount = proposal.Operations.Length,
-                    Status         = "pending"
-                });
+                return McpResponse.Ok(SubmitInternal(req));
             });
+
+        /// <summary>
+        /// Null when every operation can run in a proposal; otherwise one line per problem
+        /// and the list of tools a proposal can run.
+        /// </summary>
+        private static string CheckOperations(ProposalOperationData[] operations)
+        {
+            var problems = new StringBuilder();
+            var ids      = new HashSet<int>();
+            foreach (var op in operations)
+            {
+                if (op == null) { problems.AppendLine("An operation is empty."); continue; }
+                if (!ids.Add(op.Id))
+                    problems.AppendLine($"Operation id {op.Id} is used more than once.");
+                if (string.IsNullOrWhiteSpace(op.Tool))
+                {
+                    problems.AppendLine($"Operation {op.Id} has no tool.");
+                    continue;
+                }
+                var refusal = McpToolCatalog.ProposalRefusal(op.Tool.Trim());
+                if (refusal != null)
+                    problems.AppendLine($"Operation {op.Id}: '{op.Tool}' cannot be part of a proposal: {refusal}.");
+            }
+
+            if (problems.Length == 0) return null;
+            problems.Append("Tools a proposal can run: ")
+                    .Append(string.Join(", ", McpToolCatalog.ProposalToolNames()))
+                    .Append('.');
+            return problems.ToString();
+        }
+
+        /// <summary>
+        /// Submit a proposal directly from the main thread (no EnqueueAsync).
+        /// Called by DressingHandler.DressAreaAsync after spatial computation.
+        /// The caller must already be running on the main thread.
+        /// </summary>
+        internal static ProposalSubmittedData SubmitInternal(ProposeChangesRequest req)
+        {
+            var items = Array.ConvertAll(req.Operations, op => new ProposalOperationItem
+            {
+                Id          = op.Id,
+                Tool        = op.Tool?.Trim(),
+                Description = op.Description,
+                Params      = op.Params ?? new JObject(),
+            });
+
+            var proposal = ProposalStore.Add(req.Summary, items);
+
+            return new ProposalSubmittedData
+            {
+                ProposalId     = proposal.Id,
+                Summary        = proposal.Summary,
+                OperationCount = proposal.Operations.Length,
+                Status         = "pending",
+            };
+        }
+
+        // -----------------------------------------------------------------------
+        // Approve (Operation Queue window only: approval is the user's decision)
+        // -----------------------------------------------------------------------
+
+        /// <summary>Marks a pending proposal approved, so execute_proposal may run it. Main thread.</summary>
+        public static bool Approve(string proposalId)
+        {
+            if (!ProposalStore.TryGet(proposalId, out var proposal) || proposal.Status != ProposalStatus.Pending)
+                return false;
+            ProposalStore.UpdateStatus(proposalId, ProposalStatus.Approved);
+            return true;
+        }
 
         // -----------------------------------------------------------------------
         // POST /tools/proposal/execute
         // -----------------------------------------------------------------------
 
-        public static async Task<McpResponse> ExecuteProposalAsync(ExecuteProposalRequest req)
+        /// <summary>execute_proposal: runs only a proposal the user has approved.</summary>
+        public static Task<McpResponse> ExecuteProposalAsync(ExecuteProposalRequest req) =>
+            ExecuteAsync(req?.ProposalId, requireApproval: true);
+
+        /// <summary>The Operation Queue window's Execute: the user's click is the approval.</summary>
+        public static Task<McpResponse> ExecuteFromQueueAsync(string proposalId) =>
+            ExecuteAsync(proposalId, requireApproval: false);
+
+        private static async Task<McpResponse> ExecuteAsync(string proposalId, bool requireApproval)
         {
-            // Validate and retrieve — on main thread
+            // Check and claim on the main thread, in one step, so a second execute is refused.
             Proposal proposal = null;
-            var validationError = await MainThreadDispatcher.EnqueueAsync<McpResponse>(() =>
+            int undoGroup = -1;
+            var claimError = await MainThreadDispatcher.EnqueueAsync<McpResponse>(() =>
             {
-                if (string.IsNullOrWhiteSpace(req?.ProposalId))
+                if (string.IsNullOrWhiteSpace(proposalId))
                     return McpResponse.Fail("INVALID_PARAMS", "proposal_id must not be empty.");
 
-                if (!ProposalStore.TryGet(req.ProposalId, out proposal))
-                    return McpResponse.Fail("PROPOSAL_NOT_FOUND",
-                        $"No proposal with id '{req.ProposalId}'.");
+                if (!ProposalStore.TryGet(proposalId, out proposal))
+                    return McpResponse.Fail("PROPOSAL_NOT_FOUND", $"No proposal with id '{proposalId}'.");
 
-                if (proposal.Status != ProposalStatus.Pending)
+                if (proposal.Status == ProposalStatus.Pending && requireApproval)
+                    return McpResponse.Fail("PROPOSAL_NOT_APPROVED",
+                        $"Proposal '{proposalId}' is waiting for the user's review. Ask the user to open " +
+                        $"{QueueMenu} and either Approve it (then call execute_proposal again) or Execute it there.");
+
+                if (!proposal.IsOpen)
                     return McpResponse.Fail("PROPOSAL_NOT_PENDING",
-                        $"Proposal '{req.ProposalId}' is {proposal.Status.ToString().ToLower()}, not pending.");
+                        $"Proposal '{proposalId}' is {StatusName(proposal.Status)}, not pending or approved.");
 
-                // Open a named Undo group so the entire proposal can be reversed
-                // with a single Ctrl+Z
+                ProposalStore.UpdateStatus(proposalId, ProposalStatus.Executing);
+
+                // One undo step for the whole proposal: everything after this group is
+                // collapsed into it (or reverted down to it on failure).
                 Undo.IncrementCurrentGroup();
-                Undo.SetCurrentGroupName($"MCP: {proposal.Summary}");
-
-                return null; // null = no error, proceed
+                Undo.SetCurrentGroupName(UndoName(proposal));
+                undoGroup = Undo.GetCurrentGroup();
+                return null;
             });
+            if (claimError != null) return claimError;
 
-            if (validationError != null) return validationError;
-
-            // Execute each operation (each handler uses its own MainThreadDispatcher call)
+            // Run the operations in order; stop at the first failure.
             var results = new List<OperationResultData>();
+            ProposalOperationItem failedOp = null;
+            string failedError = null;
+
             foreach (var op in proposal.Operations)
             {
-                var (success, error) = await ExecuteOperationAsync(op);
+                var (success, error) = await RunOperationAsync(op);
                 results.Add(new OperationResultData
                 {
                     OperationId = op.Id,
+                    Tool        = op.Tool,
                     Success     = success,
-                    Error       = error
+                    Outcome     = success ? "done" : "failed",
+                    Error       = error,
                 });
+                if (!success)
+                {
+                    failedOp    = op;
+                    failedError = error;
+                    break;
+                }
             }
 
-            // Mark proposal as executed and collapse Undo group
-            await MainThreadDispatcher.EnqueueAsync(() =>
+            if (failedOp == null)
             {
-                ProposalStore.UpdateStatus(req.ProposalId, ProposalStatus.Executed);
-                Undo.CollapseUndoOperations(Undo.GetCurrentGroup());
-            });
+                var data = await MainThreadDispatcher.EnqueueAsync<McpResponse>(() =>
+                {
+                    Undo.CollapseUndoOperations(undoGroup);
+                    Undo.SetCurrentGroupName(UndoName(proposal));   // operations may rename the group
+                    Undo.IncrementCurrentGroup();                    // the next edit is a separate step
 
-            int executedCount = results.FindAll(r => r.Success).Count;
-            int failedCount   = results.Count - executedCount;
+                    var array = results.ToArray();
+                    ProposalStore.Finish(proposal.Id, ProposalStatus.Executed, array, null);
+                    return McpResponse.Ok(new ExecuteProposalResultData
+                    {
+                        ProposalId    = proposal.Id,
+                        ExecutedCount = array.Length,
+                        FailedCount   = 0,
+                        Results       = array,
+                    });
+                });
+                return data;
+            }
 
-            return McpResponse.Ok(new ExecuteProposalResultData
+            // Failed: undo everything the proposal did, then report the failed operation.
+            return await MainThreadDispatcher.EnqueueAsync<McpResponse>(() =>
             {
-                ProposalId    = req.ProposalId,
-                ExecutedCount = executedCount,
-                FailedCount   = failedCount,
-                Results       = results.ToArray()
+                Undo.RevertAllDownToGroup(undoGroup);
+                Undo.IncrementCurrentGroup();
+
+                foreach (var r in results)
+                    if (r.Success) r.Outcome = "undone";
+                foreach (var op in proposal.Operations.Skip(results.Count))
+                    results.Add(new OperationResultData { OperationId = op.Id, Tool = op.Tool, Outcome = "not run" });
+
+                var failure = $"Operation {failedOp.Id} ({failedOp.Tool}" +
+                              (string.IsNullOrWhiteSpace(failedOp.Description) ? "" : $": {failedOp.Description}") +
+                              $") failed: {failedError}. " +
+                              "Everything the proposal had done was undone, so the scene is unchanged.";
+                ProposalStore.Finish(proposal.Id, ProposalStatus.Failed, results.ToArray(), failure);
+
+                return McpResponse.Fail("PROPOSAL_FAILED",
+                    failure + " Fix the operation and submit a new proposal.");
             });
         }
+
+        /// <summary>Runs one operation exactly as the tool would run if called directly, with dry_run off.</summary>
+        private static async Task<(bool success, string error)> RunOperationAsync(ProposalOperationItem op)
+        {
+            try
+            {
+                var refusal = McpToolCatalog.ProposalRefusal(op.Tool);
+                if (refusal != null)
+                    return (false, $"'{op.Tool}' cannot be part of a proposal: {refusal}.");
+                McpToolCatalog.TryGet(op.Tool, out var tool);
+
+                var args = (JObject)(op.Params?.DeepClone() ?? new JObject());
+                if (args.ContainsKey("dry_run") || tool.InputSchema?["properties"]?["dry_run"] != null)
+                    args["dry_run"] = false;   // the proposal is the review step
+
+                var response = tool.IsBuiltIn
+                    ? await McpRouter.RouteAsync(McpRequest.FromArguments(tool.Method, tool.Path, args))
+                    : await tool.Handler(args);
+
+                if (response == null)
+                    return (false, "The tool returned no response.");
+                return response.Success ? (true, null) : (false, $"[{response.Error?.Code}] {response.Error?.Message}");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[MCP Bridge] Proposal operation {op.Id} ({op.Tool}) threw: {ex}");
+                return (false, ex.Message);
+            }
+        }
+
+        private static string UndoName(Proposal proposal) => $"MCP: {proposal.Summary}";
 
         // -----------------------------------------------------------------------
         // POST /tools/proposal/discard
@@ -129,9 +282,9 @@ namespace UnityMcpBridge.Editor.Tools
                     return McpResponse.Fail("PROPOSAL_NOT_FOUND",
                         $"No proposal with id '{req.ProposalId}'.");
 
-                if (proposal.Status != ProposalStatus.Pending)
+                if (!proposal.IsOpen)
                     return McpResponse.Fail("PROPOSAL_NOT_PENDING",
-                        $"Proposal '{req.ProposalId}' is already {proposal.Status.ToString().ToLower()}.");
+                        $"Proposal '{req.ProposalId}' is already {StatusName(proposal.Status)}.");
 
                 ProposalStore.UpdateStatus(req.ProposalId, ProposalStatus.Discarded);
                 return McpResponse.Ok(new { proposal_id = req.ProposalId, status = "discarded" });
@@ -141,120 +294,46 @@ namespace UnityMcpBridge.Editor.Tools
         // GET /tools/proposal/pending
         // -----------------------------------------------------------------------
 
-        public static Task<McpResponse> GetPendingProposalsAsync() =>
+        /// <summary>
+        /// Without an ID: the open proposals (pending, approved, executing).
+        /// With an ID: that proposal in full (any status), with parameters and, once it
+        /// has run, its results.
+        /// </summary>
+        public static Task<McpResponse> GetPendingProposalsAsync(string proposalId = null) =>
             MainThreadDispatcher.EnqueueAsync<McpResponse>(() =>
             {
-                var pending = ProposalStore.GetPending();
-                var data = System.Array.ConvertAll(pending.ToArray(), p => new PendingProposalData
+                if (!string.IsNullOrWhiteSpace(proposalId))
                 {
-                    ProposalId     = p.Id,
-                    Summary        = p.Summary,
-                    OperationCount = p.Operations.Length,
-                    CreatedAt      = p.CreatedAt.ToString("HH:mm:ss"),
-                    Operations     = System.Array.ConvertAll(p.Operations, op => new PendingOperationData
-                    {
-                        Id          = op.Id,
-                        Tool        = op.Tool,
-                        Description = op.Description
-                    })
-                });
+                    return ProposalStore.TryGet(proposalId.Trim(), out var one)
+                        ? McpResponse.Ok(ToData(one, detail: true))
+                        : McpResponse.Fail("PROPOSAL_NOT_FOUND",
+                            $"No proposal with id '{proposalId}'. Unity keeps open proposals and the last " +
+                            $"{ProposalStore.FinishedKept} finished ones until Unity is closed.");
+                }
+
+                var data = ProposalStore.GetOpen().Select(p => ToData(p, detail: false)).ToArray();
                 return McpResponse.Ok(new { proposals = data });
             });
 
-        // -----------------------------------------------------------------------
-        // Operation routing
-        // -----------------------------------------------------------------------
-
-        private static async Task<McpResponse> RunExtensionToolAsync(ProposalOperationItem op)
+        private static PendingProposalData ToData(Proposal p, bool detail) => new PendingProposalData
         {
-            if (McpToolRegistry.TryGet(op.Tool, out var tool))
-                return await tool.Handler(op.Params);
-            return McpResponse.Fail("UNKNOWN_TOOL", $"No handler registered for tool '{op.Tool}'.");
-        }
-
-        private static async Task<(bool success, string error)> ExecuteOperationAsync(
-            ProposalOperationItem op)
-        {
-            try
-            {
-                if (op.Params == null)
-                    return (false, $"Operation {op.Id}: params is null.");
-
-                McpResponse response = op.Tool?.ToLowerInvariant() switch
-                {
-                    // Phase 3
-                    "place_prefab"   => await PlacementHandler.PlacePrefabAsync(
-                                            DeserialiseAs<PlacePrefabRequest>(op.Params, dryRun: false)),
-                    "set_transform"  => await PlacementHandler.SetTransformAsync(
-                                            DeserialiseAs<SetTransformRequest>(op.Params, dryRun: false)),
-                    "delete_object"  => await PlacementHandler.DeleteObjectAsync(
-                                            DeserialiseAs<DeleteObjectRequest>(op.Params, dryRun: false)),
-                    "create_empty"   => await PlacementHandler.CreateEmptyAsync(
-                                            DeserialiseAs<CreateEmptyRequest>(op.Params, dryRun: false)),
-
-                    // Phase 4
-                    "create_light"      => await LightingHandler.CreateLightAsync(
-                                              DeserialiseAs<CreateLightRequest>(op.Params, dryRun: false)),
-                    "set_ambient_light" => await LightingHandler.SetAmbientLightAsync(
-                                              DeserialiseAs<SetAmbientLightRequest>(op.Params, dryRun: false)),
-                    "set_skybox"        => await LightingHandler.SetSkyboxAsync(
-                                              DeserialiseAs<SetSkyboxRequest>(op.Params, dryRun: false)),
-                    "set_fog"           => await LightingHandler.SetFogAsync(
-                                              DeserialiseAs<SetFogRequest>(op.Params, dryRun: false)),
-
-                    // Tools registered by extensions (McpToolRegistry)
-                    _ => await RunExtensionToolAsync(op)
-                };
-
-                return (response.Success, response.Error?.Message);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[MCP Bridge] Proposal operation {op.Id} ({op.Tool}) threw: {ex.Message}");
-                return (false, ex.Message);
-            }
-        }
-
-        
-        /// <summary>
-        /// Submit a proposal directly from the main thread (no EnqueueAsync).
-        /// Called by DressingHandler.DressAreaAsync after spatial computation.
-        /// The caller must already be running on the main thread.
-        /// </summary>
-        internal static ProposalSubmittedData SubmitInternal(ProposeChangesRequest req)
-        {
-            var items = System.Array.ConvertAll(req.Operations, op => new ProposalOperationItem
+            ProposalId     = p.Id,
+            Summary        = p.Summary,
+            Status         = StatusName(p.Status),
+            OperationCount = p.Operations.Length,
+            CreatedAt      = p.CreatedAt.ToString("HH:mm:ss"),
+            FinishedAt     = p.FinishedAt?.ToString("HH:mm:ss"),
+            Operations     = Array.ConvertAll(p.Operations, op => new PendingOperationData
             {
                 Id          = op.Id,
                 Tool        = op.Tool,
                 Description = op.Description,
-                Params      = op.Params,
-            });
+                Params      = detail ? op.Params : null,
+            }),
+            Results = detail ? p.Results : null,
+            Failure = p.Failure,
+        };
 
-            var proposal = ProposalStore.Add(req.Summary, items);
-
-            return new ProposalSubmittedData
-            {
-                ProposalId     = proposal.Id,
-                Summary        = proposal.Summary,
-                OperationCount = proposal.Operations.Length,
-                Status         = "pending",
-            };
-        }
-        
-        /// <summary>
-        /// Deserialises a JObject into T and forces DryRun = false.
-        /// Proposal operations always execute live — the proposal IS the validation step.
-        /// </summary>
-        private static T DeserialiseAs<T>(JObject json, bool dryRun) where T : class, new()
-        {
-            var obj = json.ToObject<T>() ?? new T();
-
-            // Force DryRun = false via reflection so we don't need a shared interface
-            var prop = typeof(T).GetProperty("DryRun");
-            prop?.SetValue(obj, false);
-
-            return obj;
-        }
+        public static string StatusName(ProposalStatus status) => status.ToString().ToLowerInvariant();
     }
 }

@@ -575,18 +575,20 @@ The user can respond: *"Do operations 1 and 3, skip 2 — I'll place the second 
 
 ### Layer 3: Unity Operation Queue Window
 
-For bulk operations (procedural generation, batch placement), an `EditorWindow` provides in-editor visibility and granular control.
+For bulk operations (procedural generation, batch placement), an `EditorWindow` (Eadon > MCP Bridge > Operation Queue) is the review step.
 
 **Behaviour:**
 
-- `propose_changes` pushes the operation list to the queue window and returns immediately
-- The window displays each operation with its human-readable description
-- The user can approve, edit parameters, or reject individual operations
-- "Execute Selected" / "Execute All" / "Discard All" buttons trigger `execute_proposal`
-- Executed operations are grouped under a single Undo entry labelled with the proposal summary
-- The window shows a ghost preview option (where feasible) using `Handles` drawing in SceneView
+- `propose_changes` checks every operation and adds the proposal to the window as **pending**. Only tools whose changes Undo reverses can be part of a proposal (`McpToolCatalog.ProposalRefusal`): an operation using any other tool (files, assets, bakes, scene switching, read-only tools) is refused at submit, with the reason and the list of allowed tools. Extension tools opt in with `AllowInProposals`.
+- The window shows each operation with its description; each folds out to show the exact arguments it will run with.
+- **Approve** marks the proposal approved: `execute_proposal` refuses any proposal the user has not approved (`PROPOSAL_NOT_APPROVED`). **Execute** runs it from the window (the click is the approval). **Discard** drops it.
+- A proposal runs **once**: it is marked executing before its first operation, so a second execute is refused.
+- Each operation runs exactly as the tool would if called directly (built-in tools through `McpRouter`, via `McpRequest.FromArguments`; extension tools through their handler), with `dry_run` forced off.
+- It is **one undo step**: the undo group at the start is saved and everything after it is collapsed into it, labelled with the proposal summary.
+- It is **all or nothing**: at the first failed operation, `Undo.RevertAllDownToGroup` undoes everything the proposal did, and the proposal is marked failed with the operation and its error (`PROPOSAL_FAILED`).
+- `get_pending_proposals(proposal_id)` returns a proposal's status, arguments and results, so Claude can learn what the user decided in the window. The window's Recent section shows the last finished proposals.
 
-**Implementation note:** The operation queue is stored in memory (no serialization needed for this phase). It is not preserved across domain reloads; any pending proposals are cleared on recompile.
+**Implementation note:** `ProposalStore` keeps open proposals and the last 20 finished ones in `SessionState`, so they survive a script reload but not quitting Unity. A proposal that was executing when scripts reloaded is marked failed.
 
 ### `dry_run` flag
 
@@ -845,7 +847,7 @@ No changes to the HTTP listener, dispatcher, or server entry point are required.
 
 ### Undo Grouping
 
-Currently, each operation creates its own Undo entry. For proposal-based workflows, it is preferable to group all operations from one proposal under a single Undo step. This is achievable with `Undo.IncrementCurrentGroup()` and `Undo.SetCurrentGroupName()` and should be implemented in `execute_proposal`.
+Done: a proposal executes as a single Undo step (see §8, Layer 3). Tools called directly still create one Undo entry each.
 
 ### Scene Snapshot / Diffing
 
@@ -961,7 +963,7 @@ unity-mcp-bridge/
 
 - [ ] `propose_changes` → operation queue in memory
 - [ ] `McpOperationQueueWindow` EditorWindow
-- [ ] `execute_proposal` with grouped Undo
+- [x] `execute_proposal` with grouped Undo
 - [ ] `discard_proposal`
 - [ ] Tests: queue operations, approval/discard flow, grouped Undo
 

@@ -274,14 +274,15 @@ Propose a lighting setup appropriate for a late-afternoon Victorian city scene. 
 
 ### Step 2 — Review in the Operation Queue window
 
-Open **Eadon > MCP Bridge > Operation Queue** in Unity. You will see the proposal with each operation listed and a plain-English description of what it will do.
+Open **Eadon > MCP Bridge > Operation Queue** in Unity. You will see the proposal with each operation listed and a plain-English description of what it will do. Click an operation to see the exact values it will use (positions, prefabs, colours).
 
-- **Execute All** — applies all operations as a single undoable action
+- **Execute** — applies all operations as a single undoable action. If any operation fails, everything is undone and the scene is left as it was.
+- **Approve** — lets Claude execute it. Use this when you want Claude to run it and report back. Claude cannot execute a proposal you have not approved.
 - **Discard** — removes the proposal without making any changes
 
 ### Step 3 — Execute or discard
 
-After clicking **Execute All** in the window, tell Claude the result:
+After clicking **Execute** in the window, tell Claude the result (Claude can also check it for itself):
 
 ```
 I approved the proposal. What did it place?
@@ -293,7 +294,7 @@ Or if you discarded it:
 I discarded that. Let's try a different approach — fewer buildings, more open space.
 ```
 
-You can also ask Claude to execute or discard directly:
+You can also ask Claude to execute (after you click **Approve**) or discard directly:
 
 ```
 Execute proposal abc12345.
@@ -381,7 +382,9 @@ main square. I trust your judgment on which assets to use.
 | Claude says it can't connect to Unity | Make sure Unity is open. Check the Editor Console for `[MCP Bridge] Listening on port 11000`. If absent, check that **Start On Load** is ticked in **Project Settings > Eadon > MCP Bridge**. |
 | Tools are not available | Start a new conversation in Claude Desktop. Tools are only loaded at conversation start. |
 | Claude placed an object in the wrong place | Use Ctrl+Z in Unity to undo. Give Claude the corrected position and ask it to try again. |
-| The Operation Queue window is empty | The proposal may have expired due to a script recompile. Proposals do not survive domain reloads — ask Claude to resubmit. |
+| The Operation Queue window is empty | Proposals survive a script recompile but not closing Unity. Ask Claude to resubmit. |
+| Claude says a proposal is not approved | Click **Approve** (or **Execute**) on it in Eadon > MCP Bridge > Operation Queue. |
+| A proposal failed | Nothing changed: the whole proposal was undone. The window's Recent section and Claude both show which operation failed and why. |
 | Scatter isn't snapping to terrain | `align_to_surface` requires colliders on your terrain. Check that your terrain has a Terrain Collider component. |
 | Claude chose the wrong prefab | Improve the `Description` field in that prefab's `PrefabMetadata` asset, and add relevant tags. |
 
@@ -402,5 +405,5 @@ main square. I trust your judgment on which assets to use.
 | Line objects up | *"Place [prefab] every [n]m along the path [waypoints]."* |
 | Tile a floor | *"Fill a [C]×[R] grid of [prefab] at [origin], cell size [w]×[d]m."* |
 | Get a plan first | *"Propose [description of what you want]. Don't make changes yet."* |
-| Approve a proposal | Click **Execute All** in Eadon > MCP Bridge > Operation Queue |
+| Approve a proposal | Click **Execute** (or **Approve**, to let Claude run it) in Eadon > MCP Bridge > Operation Queue |
 | Undo everything | **Ctrl+Z** in Unity |

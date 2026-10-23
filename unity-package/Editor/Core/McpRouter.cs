@@ -13,11 +13,18 @@ namespace UnityMcpBridge.Editor.Core
 {
     public static class McpRouter
     {
-        public static async Task<McpResponse> RouteAsync(HttpListenerRequest request)
+        /// <summary>Routes an HTTP request.</summary>
+        public static Task<McpResponse> RouteAsync(HttpListenerRequest request) =>
+            RouteAsync(McpRequest.FromHttp(request));
+
+        /// <summary>
+        /// Routes a request, from HTTP or built from a tool's arguments (a proposal
+        /// operation, see McpRequest.FromArguments).
+        /// </summary>
+        public static async Task<McpResponse> RouteAsync(McpRequest request)
         {
-            string method = request.HttpMethod.ToUpperInvariant();
-            string path = request.Url?.AbsolutePath?.TrimEnd('/') ?? string.Empty;
-            if (string.IsNullOrEmpty(path)) path = "/";
+            string method = request.HttpMethod;
+            string path   = request.Path;
 
             try
             {
@@ -91,7 +98,7 @@ namespace UnityMcpBridge.Editor.Core
                     return await ProposalHandler.DiscardProposalAsync(
                         await ParseBodyAsync<DiscardProposalRequest>(request));
                 if (method == "GET" && path == "/tools/proposal/pending")
-                    return await ProposalHandler.GetPendingProposalsAsync();
+                    return await ProposalHandler.GetPendingProposalsAsync(request.QueryString["proposal_id"]);
 
                 // Procedural
                 if (method == "POST" && path == "/tools/placement/place_batch")
@@ -300,11 +307,9 @@ namespace UnityMcpBridge.Editor.Core
             });
 
         /// <summary>Reads the request's JSON body as T (a new T when the body is empty). For bridge and extension handlers.</summary>
-        public static async Task<T> ParseBodyAsync<T>(HttpListenerRequest request) where T : new()
+        public static async Task<T> ParseBodyAsync<T>(McpRequest request) where T : new()
         {
-            if (request.ContentLength64 == 0) return new T();
-            using var reader = new StreamReader(request.InputStream, Encoding.UTF8);
-            string json = await reader.ReadToEndAsync();
+            string json = await request.ReadBodyAsync();
             if (string.IsNullOrWhiteSpace(json)) return new T();
             return JsonConvert.DeserializeObject<T>(json) ?? new T();
         }

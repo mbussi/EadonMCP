@@ -358,7 +358,7 @@ internal static class MyTools
 }
 ```
 
-A registered tool is listed by `/tools/catalog`, offered to the in-editor agent, usable in proposals, and reachable from MCP clients through `list_unity_tools` and `call_unity_tool`, with no Python code. The handler receives the arguments exactly as the schema names them, so the request type must read those names. Set `AlwaysConfirm = true` for tools the agent should always ask about (code, files, deletes, batches). A name the bridge already uses is refused.
+A registered tool is listed by `/tools/catalog`, offered to the in-editor agent, usable in proposals, and reachable from MCP clients through `list_unity_tools` and `call_unity_tool`, with no Python code. The handler receives the arguments exactly as the schema names them, so the request type must read those names. Set `AlwaysConfirm = true` for tools the agent should always ask about (code, files, deletes, batches). Set `AllowInProposals = true` only when every change the tool makes is reversed by Unity's Undo (scene objects and components, not assets or files): `propose_changes` then accepts it, and a failed proposal undoes it with the rest. A name the bridge already uses is refused.
 
 Routes that aren't tools can still be added with `McpRouteRegistry.Register(method, path, handler, owner)`. The router checks its own routes first and then the registry, so an extension cannot replace a bridge route. Give the extension's assembly definition a version define on the bridge package and make it a define constraint, so it only compiles when the bridge is installed:
 

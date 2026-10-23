@@ -54,7 +54,12 @@ namespace UnityMcpBridge.Editor.Core
     public class OperationResultData
     {
         [JsonProperty("operation_id")] public int    OperationId { get; set; }
+        [JsonProperty("tool")]         public string Tool        { get; set; }
         [JsonProperty("success")]      public bool   Success     { get; set; }
+
+        /// <summary>"done", "failed", "undone" (it ran, then the proposal failed and was undone) or "not run".</summary>
+        [JsonProperty("outcome")]      public string Outcome     { get; set; }
+
         [JsonProperty("error",  NullValueHandling = NullValueHandling.Ignore)]
                                        public string Error       { get; set; }
     }
@@ -63,9 +68,22 @@ namespace UnityMcpBridge.Editor.Core
     {
         [JsonProperty("proposal_id")]     public string   ProposalId     { get; set; }
         [JsonProperty("summary")]         public string   Summary        { get; set; }
+
+        /// <summary>pending, approved, executing, executed, failed or discarded.</summary>
+        [JsonProperty("status")]          public string   Status         { get; set; }
         [JsonProperty("operation_count")] public int      OperationCount { get; set; }
         [JsonProperty("created_at")]      public string   CreatedAt      { get; set; }
+        [JsonProperty("finished_at", NullValueHandling = NullValueHandling.Ignore)]
+                                          public string   FinishedAt     { get; set; }
         [JsonProperty("operations")]      public PendingOperationData[] Operations { get; set; }
+
+        /// <summary>Once it has run: one entry per operation.</summary>
+        [JsonProperty("results", NullValueHandling = NullValueHandling.Ignore)]
+                                          public OperationResultData[] Results { get; set; }
+
+        /// <summary>When it failed: the operation and its error.</summary>
+        [JsonProperty("failure", NullValueHandling = NullValueHandling.Ignore)]
+                                          public string   Failure        { get; set; }
     }
 
     public class PendingOperationData
@@ -73,5 +91,9 @@ namespace UnityMcpBridge.Editor.Core
         [JsonProperty("id")]          public int    Id          { get; set; }
         [JsonProperty("tool")]        public string Tool        { get; set; }
         [JsonProperty("description")] public string Description { get; set; }
+
+        /// <summary>The tool's arguments; only when one proposal is asked for.</summary>
+        [JsonProperty("params", NullValueHandling = NullValueHandling.Ignore)]
+                                      public Newtonsoft.Json.Linq.JObject Params { get; set; }
     }
 }

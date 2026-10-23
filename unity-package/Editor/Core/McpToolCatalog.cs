@@ -46,6 +46,46 @@ namespace UnityMcpBridge.Editor.Core
             "manage_scene", "execute_proposal", "execute_bake",
         };
 
+        /// <summary>
+        /// Built-in tools a proposal may run: scene changes that Unity's Undo reverses, so a
+        /// proposal is one undo step and a failed one can be undone as a whole. Every other
+        /// tool is refused when the proposal is submitted (see ProposalRefusal).
+        /// </summary>
+        private static readonly HashSet<string> ProposalBuiltIns = new HashSet<string>
+        {
+            "place_prefab", "place_prefab_batch", "scatter_prefabs", "place_along_path", "fill_grid",
+            "replace_prefab", "set_transform", "delete_object", "create_empty", "duplicate_objects",
+            "reparent_objects", "group_objects", "snap_to_surface", "align_and_distribute",
+            "randomize_transforms", "add_component_to_object", "set_object_properties",
+            "set_object_metadata", "apply_material", "create_trigger_volume", "create_light",
+            "set_ambient_light", "set_skybox", "set_fog", "create_reflection_probe", "create_audio_zone",
+            "set_navmesh_area", "paint_terrain_layer", "create_zone_scaffold", "link_zones",
+            "create_reference_point", "create_gameplay_marker", "update_gameplay_marker",
+            "hide_scaffold", "show_scaffold", "execute_bake", "create_patrol_route",
+        };
+
+        /// <summary>Why a built-in tool cannot be part of a proposal.</summary>
+        private static readonly Dictionary<string, string> ProposalRefusals = new Dictionary<string, string>
+        {
+            ["propose_changes"]  = "proposals cannot contain proposals",
+            ["execute_proposal"] = "proposals cannot contain proposals",
+            ["discard_proposal"] = "proposals cannot contain proposals",
+            ["dress_area"]       = "it submits a proposal of its own",
+            ["cancel_job"]       = "it acts on jobs, not on the scene",
+            ["write_project_file"]       = "it writes a file, which Undo cannot reverse",
+            ["refresh_assets"]           = "it recompiles scripts, which reloads Unity in the middle of the proposal",
+            ["manage_scene"]             = "it opens, closes or creates scenes",
+            ["bake_lighting"]            = "it runs in the background and writes lighting data assets",
+            ["bake_navmesh"]             = "it writes navmesh data assets, which Undo cannot reverse",
+            ["create_postprocessing_volume"] = "it can create a volume profile asset, which Undo cannot remove",
+            ["create_cutscene_sequence"] = "it creates timeline assets, which Undo cannot remove",
+            ["update_cutscene_sequence"] = "it changes and saves timeline assets",
+            ["preview_cutscene_sequence"] = "it only previews a cutscene and changes nothing",
+            ["create_prefab_metadata"]   = "it creates a metadata asset, which Undo cannot remove",
+            ["update_prefab_metadata"]   = "it changes and saves a metadata asset",
+            ["update_scene_context"]     = "it changes and saves the scene context asset",
+        };
+
         private static readonly object Gate = new object();
         private static string _catalogFile;
         private static List<McpToolDefinition> _builtIns;
@@ -92,6 +132,37 @@ namespace UnityMcpBridge.Editor.Core
             tool = _builtIns.Find(t => t.Method == method && t.Path == path)
                    ?? McpToolRegistry.GetTools().Find(t => t.Method == method && t.Path == path);
             return tool != null;
+        }
+
+        /// <summary>
+        /// Null when a proposal may run the tool; otherwise why not, phrased to follow
+        /// "'name' cannot be part of a proposal: ".
+        /// </summary>
+        public static string ProposalRefusal(string name)
+        {
+            if (!TryGet(name, out var tool))
+                return "there is no such tool";
+            if (tool.IsBuiltIn)
+            {
+                if (ProposalBuiltIns.Contains(tool.Name)) return null;
+                if (ProposalRefusals.TryGetValue(tool.Name, out var reason)) return reason;
+                return tool.ReadOnly
+                    ? "it only reads, so it changes nothing; call it directly"
+                    : "it is not one of the tools a proposal can run (scene changes that Undo reverses)";
+            }
+            return tool.AllowInProposals
+                ? null
+                : $"{tool.Owner} does not allow it in proposals (it may change assets or files that Undo cannot reverse)";
+        }
+
+        /// <summary>The names of every tool a proposal may run, sorted.</summary>
+        public static List<string> ProposalToolNames()
+        {
+            var names = new List<string>();
+            foreach (var tool in GetAll())
+                if (ProposalRefusal(tool.Name) == null) names.Add(tool.Name);
+            names.Sort(StringComparer.Ordinal);
+            return names;
         }
 
         /// <summary>

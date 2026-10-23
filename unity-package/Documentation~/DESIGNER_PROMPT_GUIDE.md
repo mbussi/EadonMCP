@@ -196,7 +196,7 @@ Configures Unity's built-in scene fog (linear, exponential, or exponential-squar
 
 ## 4. The Proposal Workflow
 
-The proposal workflow is the human-in-the-loop safety net for bulk or risky changes. The agent submits a plan, you review it in **Window → MCP Bridge → Operation Queue**, then confirm or reject before anything touches the scene.
+The proposal workflow is the human-in-the-loop safety net for bulk or risky changes. The agent submits a plan, you review it in **Eadon → MCP Bridge → Operation Queue**, then execute, approve or discard it before anything touches the scene. A proposal runs as one undo step, and if any operation fails, everything is undone.
 
 **Use proposals whenever you're placing more than a handful of objects, doing anything destructive, or working in an area you care about.**
 
@@ -216,7 +216,7 @@ Submits a batch of operations for review. Nothing is executed yet.
 ---
 
 ### `execute_proposal`
-Executes an approved proposal. All operations run as a single undoable Undo group.
+Executes a proposal you have approved in the Operation Queue (Claude cannot run one you haven't). All operations run as a single undoable Undo group.
 
 | | |
 |:---:|:---|

@@ -106,23 +106,29 @@ async def test_execute_proposal_reports_success_count(client):
             return_value=_ok({"proposal_id": "abc123", "executed_count": 3, "failed_count": 0, "results": []})
         )
         result = await execute_proposal("abc123")
-    assert "3 succeeded" in result
+    assert "3 operation(s) applied" in result
 
 
 @pytest.mark.asyncio
-async def test_execute_proposal_reports_failures(client):
+async def test_execute_proposal_reports_a_proposal_not_approved(client):
     with respx.mock:
         respx.post(f"{BASE_URL}/tools/proposal/execute").mock(
-            return_value=_ok({
-                "proposal_id": "abc123",
-                "executed_count": 1,
-                "failed_count": 1,
-                "results": [{"operation_id": 2, "success": False, "error": "PREFAB_NOT_FOUND"}]
-            })
+            return_value=_err("PROPOSAL_NOT_APPROVED", "Ask the user to open Eadon > MCP Bridge > Operation Queue")
         )
         result = await execute_proposal("abc123")
-    assert "1 failed" in result
-    assert "PREFAB_NOT_FOUND" in result
+    assert "PROPOSAL_NOT_APPROVED" in result
+    assert "Operation Queue" in result
+
+
+@pytest.mark.asyncio
+async def test_execute_proposal_reports_a_failed_proposal(client):
+    with respx.mock:
+        respx.post(f"{BASE_URL}/tools/proposal/execute").mock(
+            return_value=_err("PROPOSAL_FAILED", "Operation 2 (place_prefab) failed: PREFAB_NOT_FOUND")
+        )
+        result = await execute_proposal("abc123")
+    assert "PROPOSAL_FAILED" in result
+    assert "Operation 2" in result
 
 
 @pytest.mark.asyncio
@@ -184,4 +190,25 @@ async def test_get_pending_proposals_returns_message_when_empty(client):
             return_value=_ok({"proposals": []})
         )
         result = await get_pending_proposals()
-    assert "No pending" in result
+    assert "No proposals waiting" in result
+
+
+@pytest.mark.asyncio
+async def test_get_pending_proposals_with_an_id_asks_for_that_proposal(client):
+    with respx.mock:
+        route = respx.get(f"{BASE_URL}/tools/proposal/pending").mock(
+            return_value=_ok({"proposal_id": "abc123", "status": "executed", "operations": []})
+        )
+        result = await get_pending_proposals("abc123")
+    assert route.calls.last.request.url.params["proposal_id"] == "abc123"
+    assert json.loads(result)["status"] == "executed"
+
+
+@pytest.mark.asyncio
+async def test_propose_changes_points_to_the_eadon_menu(client):
+    with respx.mock:
+        respx.post(f"{BASE_URL}/tools/proposal/submit").mock(
+            return_value=_ok({"proposal_id": "abc123", "operation_count": 1})
+        )
+        result = await propose_changes("Test", [{"id": 1, "tool": "create_empty", "params": {}}])
+    assert "Eadon > MCP Bridge > Operation Queue" in result

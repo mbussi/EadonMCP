@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityMcpBridge.Editor.Core;
@@ -244,6 +245,36 @@ namespace UnityMcpBridge.Editor.Tests
             Assert.IsTrue(task.Result.Success);
             Assert.AreEqual(FogMode.Linear, RenderSettings.fogMode);
             Assert.IsTrue(RenderSettings.fog);
+        }
+
+        [Test]
+        public void SetFog_CanBeUndone()
+        {
+            RenderSettings.fog = false;
+            Undo.IncrementCurrentGroup();
+
+            var task = LightingHandler.SetFogAsync(new SetFogRequest { Enabled = true });
+            MainThreadDispatcher.Tick();
+            Assert.IsTrue(task.Result.Success);
+            Assert.IsTrue(RenderSettings.fog);
+
+            Undo.PerformUndo();
+            Assert.IsFalse(RenderSettings.fog);
+        }
+
+        [Test]
+        public void SetAmbientLight_CanBeUndone()
+        {
+            RenderSettings.ambientIntensity = 0.5f;
+            Undo.IncrementCurrentGroup();
+
+            var task = LightingHandler.SetAmbientLightAsync(new SetAmbientLightRequest { Mode = "Flat", Intensity = 1.5f });
+            MainThreadDispatcher.Tick();
+            Assert.IsTrue(task.Result.Success);
+            Assert.AreEqual(1.5f, RenderSettings.ambientIntensity, 0.001f);
+
+            Undo.PerformUndo();
+            Assert.AreEqual(0.5f, RenderSettings.ambientIntensity, 0.001f);
         }
     }
 }

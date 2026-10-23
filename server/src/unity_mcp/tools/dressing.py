@@ -574,7 +574,7 @@ async def dress_area(
     """
     Fill a circular area with prefabs chosen to match a plain-language intent
     (e.g. "medieval market stall with crates and barrels"), submitted as a
-    proposal for review: nothing is placed until execute_proposal.
+    proposal for review: nothing is placed until the user executes or approves it.
 
     Given a world-space centre, a radius, and a natural-language description
     of what you want in the area, dress_area:
@@ -585,10 +585,10 @@ async def dress_area(
       5. Assigns a prefab to each position (weighted by relevance)
       6. Submits everything as a proposal to the Operation Queue for review
 
-    Nothing is placed until you call execute_proposal with the returned
-    proposal_id. The Operation Queue window shows every proposed item with
-    its position and prefab name; you can approve, reject, or edit individual
-    items before executing.
+    Nothing is placed until the user reviews the proposal in Eadon > MCP Bridge >
+    Operation Queue, which shows every proposed item with its arguments
+    (position, prefab), and either executes it there or approves it so you can
+    call execute_proposal with the returned proposal_id. It runs as one undo step.
 
     ── PARAMETERS ───────────────────────────────────────────────────────────
 
@@ -639,8 +639,8 @@ async def dress_area(
     ── WORKFLOW ─────────────────────────────────────────────────────────────
 
     1. dress_area(...)             → returns proposal_id + summary
-    2. [Review Operation Queue]    → approve/reject individual items
-    3. execute_proposal(proposal_id)
+    2. [User reviews the Operation Queue] → Execute, Approve or Discard
+    3. execute_proposal(proposal_id)       ← only after the user approves
     4. snap_to_surface(placed_paths)    ← optional cleanup pass
     5. randomize_transforms(placed_paths, rotation_range=[0,180,0])
     6. set_object_metadata(placed_paths, tag="Prop", static_flags=["LightmapStatic"])

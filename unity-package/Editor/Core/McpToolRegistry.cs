@@ -94,7 +94,7 @@ namespace UnityMcpBridge.Editor.Core
         }
 
         /// <summary>The tool's arguments from a request: the JSON body (POST) or the query string (GET).</summary>
-        private static async Task<JObject> ReadArgumentsAsync(HttpListenerRequest request, string method)
+        private static async Task<JObject> ReadArgumentsAsync(McpRequest request, string method)
         {
             if (method == "GET")
             {
@@ -103,11 +103,7 @@ namespace UnityMcpBridge.Editor.Core
                     if (key != null) query[key] = request.QueryString[key];
                 return query;
             }
-
-            if (request.ContentLength64 == 0) return new JObject();
-            using var reader = new StreamReader(request.InputStream, Encoding.UTF8);
-            var json = await reader.ReadToEndAsync();
-            return string.IsNullOrWhiteSpace(json) ? new JObject() : JObject.Parse(json);
+            return await request.ReadJsonAsync();
         }
     }
 }

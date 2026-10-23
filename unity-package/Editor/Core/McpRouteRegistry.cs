@@ -6,8 +6,11 @@ using UnityEngine;
 
 namespace UnityMcpBridge.Editor.Core
 {
-    /// <summary>Handles one bridge route. Called on a thread-pool thread: use MainThreadDispatcher for Unity APIs.</summary>
-    public delegate Task<McpResponse> McpRouteHandler(HttpListenerRequest request);
+    /// <summary>
+    /// Handles one bridge route. Called on a thread-pool thread for HTTP requests, or on the
+    /// main thread when a proposal runs the route: use MainThreadDispatcher for Unity APIs.
+    /// </summary>
+    public delegate Task<McpResponse> McpRouteHandler(McpRequest request);
 
     /// <summary>
     /// Routes added by other assemblies (extensions), so they can serve tools

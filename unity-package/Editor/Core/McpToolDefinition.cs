@@ -41,6 +41,14 @@ namespace UnityMcpBridge.Editor.Core
         /// <summary>True when the agent must always ask before running it, whatever its settings.</summary>
         public bool AlwaysConfirm;
 
+        /// <summary>
+        /// True when propose_changes may include the tool. Only for tools whose every change
+        /// Unity's Undo reverses (scene objects, components): a proposal that fails is undone
+        /// as a whole. Tools that create or change assets or files must leave it false.
+        /// Built-in tools are decided by McpToolCatalog.
+        /// </summary>
+        public bool AllowInProposals;
+
         /// <summary>Who registered the tool, e.g. "PCG extension". "Eadon MCP Bridge" for built-ins.</summary>
         public string Owner;
 

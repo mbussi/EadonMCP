@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -12,11 +13,25 @@ namespace UnityMcpBridge.Editor.Tools
     /// Handles light creation and scene-wide lighting settings (ambient, skybox, fog).
     ///
     /// create_light registers its GameObject with Unity's Undo system.
-    /// RenderSettings changes (ambient, skybox, fog) are not individually undoable
-    /// via Ctrl+Z — they mark the scene dirty instead and are saved with it.
+    /// Ambient, skybox and fog changes are recorded on the active scene's render
+    /// settings object (as Unity's Lighting window does), so Ctrl+Z reverts them,
+    /// and mark the scene dirty.
     /// </summary>
     public static class LightingHandler
     {
+        // RenderSettings.GetRenderSettings() is internal: it returns the active scene's
+        // render settings object, the one Unity's Lighting window records for Undo.
+        private static readonly MethodInfo GetRenderSettingsMethod =
+            typeof(RenderSettings).GetMethod("GetRenderSettings", BindingFlags.Static | BindingFlags.NonPublic);
+
+        /// <summary>Records the render settings for Undo before a change. Does nothing if Unity hides the object.</summary>
+        private static void RecordRenderSettings(string undoName)
+        {
+            if (Application.isPlaying) return;
+            if (GetRenderSettingsMethod?.Invoke(null, null) is Object settings && settings != null)
+                Undo.RecordObject(settings, undoName);
+        }
+
         // -----------------------------------------------------------------------
         // POST /tools/lighting/create_light
         // -----------------------------------------------------------------------
@@ -105,6 +120,7 @@ namespace UnityMcpBridge.Editor.Tools
                 if (req.DryRun)
                     return McpResponse.Ok(new { mode = req.Mode, dry_run = true });
 
+                RecordRenderSettings("MCP Set Ambient Light");
                 RenderSettings.ambientMode = mode;
 
                 switch (mode)
@@ -150,6 +166,7 @@ namespace UnityMcpBridge.Editor.Tools
                 if (req.DryRun)
                     return McpResponse.Ok(new { material_path = req.MaterialPath, dry_run = true });
 
+                RecordRenderSettings("MCP Set Skybox");
                 RenderSettings.skybox = skybox;
                 DynamicGI.UpdateEnvironment();
                 if (!Application.isPlaying)
@@ -172,6 +189,7 @@ namespace UnityMcpBridge.Editor.Tools
                 if (req.DryRun)
                     return McpResponse.Ok(new { enabled = req.Enabled, mode = req.Mode, dry_run = true });
 
+                RecordRenderSettings("MCP Set Fog");
                 RenderSettings.fog = req.Enabled;
 
                 if (req.Color != null) RenderSettings.fogColor = ToColor(req.Color);
